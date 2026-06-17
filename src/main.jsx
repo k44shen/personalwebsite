@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { PORTFOLIO_ARTIFACTS } from "./portfolioData.js";
 import "./styles.css";
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -62,6 +64,40 @@ function makePanel(config, position, scale = 1) {
   return mesh;
 }
 
+function artifactCopy(artifact, index) {
+  const rawLines = artifact.lines ?? artifact.evidenceLines ?? artifact.highlights ?? artifact.details ?? artifact.description ?? [];
+  const authoredLines = (Array.isArray(rawLines) ? rawLines : [rawLines])
+    .flatMap((line) => (typeof line === "string" ? line.split(/\n|(?<=[.!?])\s+/) : []))
+    .filter((line) => line && !line.toLowerCase().startsWith("authoring placeholder"));
+  const lines = [artifact.subtitle, ...authoredLines]
+    .filter(Boolean)
+    .slice(0, 3);
+  return {
+    kicker: artifact.kicker ?? artifact.shortLabel ?? artifact.category ?? artifact.artifactType ?? `artifact ${index + 1}`,
+    title: artifact.title ?? artifact.name ?? artifact.label ?? `Artifact ${index + 1}`,
+    lines,
+    accent: artifact.accent ?? artifact.signalColor ?? artifact.color ?? "#56c7d9",
+  };
+}
+
+function makeLabelTexture(text, accent = "#d7e1e5") {
+  const canvas = document.createElement("canvas");
+  canvas.width = 768;
+  canvas.height = 160;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#182126";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = accent;
+  ctx.fillRect(0, 0, 18, canvas.height);
+  ctx.fillStyle = "#eef3f4";
+  ctx.font = "700 46px ui-monospace, SFMono-Regular, Menlo, monospace";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(text).toUpperCase().slice(0, 25), 48, canvas.height / 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 function RobotArmGame() {
   const mountRef = useRef(null);
 
@@ -79,17 +115,22 @@ function RobotArmGame() {
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: false,
-      preserveDrawingBuffer: true,
       powerPreference: "high-performance",
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x02070d, 1);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     mount.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0x9ecbff, 0.36));
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    const environmentRenderTarget = pmremGenerator.fromScene(new RoomEnvironment(), 0.04);
+    scene.environment = environmentRenderTarget.texture;
+
+    scene.add(new THREE.HemisphereLight(0xc8d8de, 0x182127, 0.48));
 
     const key = new THREE.DirectionalLight(0xffffff, 3.2);
     key.position.set(4.5, 8, 5.5);
@@ -101,13 +142,13 @@ function RobotArmGame() {
     key.shadow.camera.right = 7;
     key.shadow.camera.top = 7;
     key.shadow.camera.bottom = -7;
-    const rim = new THREE.PointLight(0x22ddff, 16, 18);
+    const rim = new THREE.PointLight(0x8cc9d2, 8, 18);
     rim.position.set(-4.5, 3.4, 4);
-    const ember = new THREE.PointLight(0xffb23f, 10, 16);
+    const ember = new THREE.PointLight(0xffb45c, 7, 16);
     ember.position.set(4.5, 2.6, -2.5);
     scene.add(key, rim, ember);
 
-    const grid = new THREE.GridHelper(22, 44, 0x22ddff, 0x172f3f);
+    const grid = new THREE.GridHelper(22, 44, 0x6f939b, 0x243339);
     grid.material.transparent = true;
     grid.material.opacity = 0.23;
     scene.add(grid);
@@ -123,6 +164,23 @@ function RobotArmGame() {
     workPlane.position.set(0, 0.22, 1.4);
     workPlane.receiveShadow = true;
     scene.add(workPlane);
+
+    const backRail = new THREE.Mesh(
+      new THREE.BoxGeometry(7.5, 0.12, 0.12),
+      new THREE.MeshStandardMaterial({ color: 0x566269, metalness: 0.72, roughness: 0.32 }),
+    );
+    backRail.position.set(0, 0.58, -1.18);
+    const controlBox = new THREE.Mesh(
+      new THREE.BoxGeometry(0.9, 0.62, 0.5),
+      new THREE.MeshStandardMaterial({ color: 0x263238, metalness: 0.44, roughness: 0.48 }),
+    );
+    controlBox.position.set(3.15, 0.64, -0.85);
+    const eStop = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.12, 0.12, 24),
+      new THREE.MeshStandardMaterial({ color: 0xb9322d, roughness: 0.3 }),
+    );
+    eStop.position.set(3.15, 1.01, -0.84);
+    scene.add(backRail, controlBox, eStop);
 
     const arena = new THREE.Mesh(
       new THREE.RingGeometry(2.2, 6.9, 128),
@@ -216,13 +274,19 @@ function RobotArmGame() {
       return cable;
     };
 
-    const makeDataModule = ({ color, accent }, position, panel) => {
+    const makeDataModule = (artifact, position, panel, index) => {
+      const copy = artifactCopy(artifact, index);
+      const color = new THREE.Color(artifact.color ?? artifact.signalColor ?? copy.accent);
+      const accent = new THREE.Color(artifact.accent ?? artifact.signalColor ?? copy.accent);
+      const artifactType = String(artifact.artifactType ?? artifact.type ?? "module").toLowerCase();
       const group = new THREE.Group();
       group.position.copy(position);
       group.userData.home = position.clone();
       group.userData.panel = panel;
       group.userData.scanned = false;
       group.userData.floatOffset = Math.random() * Math.PI * 2;
+      group.userData.artifact = artifact;
+      group.userData.artifactType = artifactType;
 
       const shellMat = new THREE.MeshStandardMaterial({
         color: 0x111a22,
@@ -244,10 +308,24 @@ function RobotArmGame() {
         roughness: 0.18,
       });
 
-      const body = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.3, 0.92), shellMat);
+      let bodyGeometry;
+      if (/code|software|web/.test(artifactType)) bodyGeometry = new THREE.BoxGeometry(0.82, 0.22, 0.96);
+      else if (/robot|hardware|mech/.test(artifactType)) bodyGeometry = new THREE.CylinderGeometry(0.45, 0.45, 0.3, 8);
+      else if (/design|cad|prototype/.test(artifactType)) bodyGeometry = new THREE.OctahedronGeometry(0.5, 0);
+      else if (/research|document|resume/.test(artifactType)) bodyGeometry = new THREE.BoxGeometry(0.68, 0.16, 1.04);
+      else bodyGeometry = [
+        new THREE.BoxGeometry(0.82, 0.22, 0.96),
+        new THREE.CylinderGeometry(0.45, 0.45, 0.3, 8),
+        new THREE.OctahedronGeometry(0.5, 0),
+        new THREE.BoxGeometry(0.68, 0.16, 1.04),
+      ][index % 4];
+      const body = new THREE.Mesh(bodyGeometry, shellMat);
       body.position.y = 0.15;
-      const window = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.035, 0.48), windowMat);
-      window.position.set(0, 0.32, 0.05);
+      const windowGeometry = index % 4 === 1
+        ? new THREE.CylinderGeometry(0.24, 0.24, 0.04, 24)
+        : new THREE.BoxGeometry(index % 4 === 3 ? 0.42 : 0.48, 0.035, index % 4 === 3 ? 0.68 : 0.48);
+      const window = new THREE.Mesh(windowGeometry, windowMat);
+      window.position.set(0, index % 4 === 2 ? 0.55 : 0.32, 0.05);
       const spine = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.96), accentMat);
       spine.position.set(-0.37, 0.34, 0);
       const handle = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.028, 8, 36), graphite);
@@ -260,7 +338,15 @@ function RobotArmGame() {
       });
       const beacon = new THREE.PointLight(accent, 1.4, 2.6);
       beacon.position.y = 0.35;
-      group.add(body, window, spine, handle, ...feet, beacon);
+      const labelTexture = makeLabelTexture(copy.title, copy.accent);
+      const label = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.58, 0.12),
+        new THREE.MeshBasicMaterial({ map: labelTexture, side: THREE.DoubleSide }),
+      );
+      label.position.set(0, 0.18, 0.48);
+      label.rotation.x = -Math.PI / 2;
+      group.userData.labelTexture = labelTexture;
+      group.add(body, window, spine, handle, ...feet, beacon, label);
       group.traverse((object) => {
         object.castShadow = true;
         object.receiveShadow = true;
@@ -302,7 +388,19 @@ function RobotArmGame() {
     );
     scannerRing.rotation.x = Math.PI / 2;
     scannerRing.position.y = 0.48;
-    scanner.add(scannerBase, scannerWell, scannerBeam, scannerRing);
+    const scannerGate = new THREE.Mesh(
+      new THREE.BoxGeometry(1.28, 0.82, 1.28),
+      new THREE.MeshBasicMaterial({ color: 0x7fced5, wireframe: true, transparent: true, opacity: 0.1 }),
+    );
+    scannerGate.position.y = 0.82;
+    const scannerLabelTexture = makeLabelTexture("SCAN / ALIGN", "#8fd6d9");
+    const scannerLabel = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.18, 0.25),
+      new THREE.MeshBasicMaterial({ map: scannerLabelTexture, side: THREE.DoubleSide }),
+    );
+    scannerLabel.position.set(0, 0.38, 0.92);
+    scannerLabel.rotation.x = -Math.PI / 5;
+    scanner.add(scannerBase, scannerWell, scannerBeam, scannerRing, scannerGate, scannerLabel);
     scanner.traverse((object) => {
       object.castShadow = true;
       object.receiveShadow = true;
@@ -400,21 +498,27 @@ function RobotArmGame() {
     const palm = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.28, 0.5), graphite);
     palm.position.y = 0.04;
     toolBase.add(palm);
+    const fingerPivots = [];
     [-1, 1].forEach((side) => {
+      const fingerPivot = new THREE.Group();
+      fingerPivot.position.set(side * 0.28, 0.23, 0.2);
+      fingerPivot.userData.side = side;
+      fingerPivots.push(fingerPivot);
       const knuckle = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.22, 20), amber);
       knuckle.rotation.x = Math.PI / 2;
-      knuckle.position.set(side * 0.28, 0.23, 0.2);
       const finger = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.74, 0.13), metal);
-      finger.position.set(side * 0.29, 0.55, 0.29);
-      finger.rotation.z = side * 0.18;
+      finger.position.set(0, 0.36, 0.09);
       const fingerTip = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.3, 0.13), graphite);
-      fingerTip.position.set(side * 0.35, 0.94, 0.3);
-      fingerTip.rotation.z = side * 0.34;
+      fingerTip.position.set(side * 0.055, 0.76, 0.1);
+      fingerTip.rotation.z = side * 0.16;
       const pad = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.22, 0.15), rubber);
-      pad.position.set(side * 0.39, 1.04, 0.34);
-      pad.rotation.z = side * 0.18;
-      toolBase.add(knuckle, finger, fingerTip, pad);
+      pad.position.set(side * 0.08, 0.91, 0.14);
+      fingerPivot.add(knuckle, finger, fingerTip, pad);
+      toolBase.add(fingerPivot);
     });
+    const gripSocket = new THREE.Object3D();
+    gripSocket.position.set(0, 1.08, 0.34);
+    toolBase.add(gripSocket);
 
     const target = new THREE.Mesh(
       new THREE.SphereGeometry(0.13, 24, 16),
@@ -469,70 +573,27 @@ function RobotArmGame() {
     const trace = new THREE.Line(traceGeometry, lineMaterial);
     scene.add(trace);
 
-    const panels = [
-      makePanel(
-        {
-          kicker: "identity",
-          title: "Kevin Shen",
-          lines: ["Robotics, software,", "control systems,", "and mechatronics."],
-        },
-        new THREE.Vector3(-3.4, 3.15, -2.3),
-        1.06,
-      ),
-      makePanel(
-        {
-          kicker: "projects",
-          title: "Selected Builds",
-          lines: ["Gesture robot hand", "Autonomous rover", "Embedded experiments"],
-          accent: "#ffb23f",
-        },
-        new THREE.Vector3(3.55, 2.72, -1.75),
-        0.9,
-      ),
-      makePanel(
-        {
-          kicker: "resume",
-          title: "Systems Profile",
-          lines: ["Python · C++ · React", "ROS · CAD · controls", "hardware to interface"],
-        },
-        new THREE.Vector3(-3.95, 1.65, 1.15),
-        0.82,
-      ),
-      makePanel(
-        {
-          kicker: "contact",
-          title: "Docking Bay",
-          lines: ["GitHub", "LinkedIn", "hello@kevinshen.com"],
-          accent: "#64e6a2",
-        },
-        new THREE.Vector3(3.55, 1.35, 1.35),
-        0.78,
-      ),
+    const artifacts = PORTFOLIO_ARTIFACTS.slice(0, 4);
+    const panelPositions = [
+      new THREE.Vector3(-3.4, 3.15, -2.3),
+      new THREE.Vector3(3.55, 2.72, -1.75),
+      new THREE.Vector3(-3.95, 1.65, 1.15),
+      new THREE.Vector3(3.55, 1.35, 1.35),
     ];
+    const panels = artifacts.map((artifact, index) =>
+      makePanel(artifactCopy(artifact, index), panelPositions[index], [1.06, 0.9, 0.82, 0.78][index]),
+    );
     panels.forEach((panel) => scene.add(panel));
 
-    const dataModules = [
-      makeDataModule(
-        { color: 0x174bff, accent: 0x38d5ff, shape: "sphere" },
-        new THREE.Vector3(-2.9, 0.72, 1.9),
-        panels[0],
-      ),
-      makeDataModule(
-        { color: 0xff8c24, accent: 0xffd27a, shape: "box" },
-        new THREE.Vector3(2.55, 0.72, 2.25),
-        panels[1],
-      ),
-      makeDataModule(
-        { color: 0x6f48ff, accent: 0xb79cff, shape: "octa" },
-        new THREE.Vector3(-2.55, 0.72, 0.42),
-        panels[2],
-      ),
-      makeDataModule(
-        { color: 0x1fc77c, accent: 0x64e6a2, shape: "cylinder" },
-        new THREE.Vector3(2.5, 0.72, 0.58),
-        panels[3],
-      ),
+    const modulePositions = [
+      new THREE.Vector3(-2.9, 0.72, 1.9),
+      new THREE.Vector3(2.55, 0.72, 2.25),
+      new THREE.Vector3(-2.55, 0.72, 0.42),
+      new THREE.Vector3(2.5, 0.72, 0.58),
     ];
+    const dataModules = artifacts.map((artifact, index) =>
+      makeDataModule(artifact, modulePositions[index], panels[index], index),
+    );
     dataModules.forEach((module) => scene.add(module));
     scene.traverse((object) => {
       if (object.isMesh && object.material?.isMeshStandardMaterial) {
@@ -543,22 +604,36 @@ function RobotArmGame() {
 
     const desired = new THREE.Vector3(0.9, 2.35, 0.8);
     const tracked = desired.clone();
+    const ikTarget = desired.clone();
     const velocity = new THREE.Vector3();
-    const integral = new THREE.Vector3();
     const error = new THREE.Vector3();
-    const lastError = new THREE.Vector3();
+    const acceleration = new THREE.Vector3();
     const pointer = new THREE.Vector2(0.18, 0.04);
-    const pointerWorld = new THREE.Vector3(0.5, 0.78, 1.4);
-    const desiredSurface = new THREE.Vector3(0.5, 1.36, 1.4);
+    const pointerWorld = new THREE.Vector3(0.5, 1.36, 1.4);
     const raycaster = new THREE.Raycaster();
-    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.78);
+    const dragPlane = new THREE.Plane();
+    const dragPlaneAnchor = pointerWorld.clone();
+    const dragPlaneNormal = new THREE.Vector3();
     const dragHit = new THREE.Vector3();
-    const carryOffset = new THREE.Vector3(0, -0.66, 0);
+    const dragOffset = new THREE.Vector3();
+    const tcpWorld = new THREE.Vector3();
+    const wristWorld = new THREE.Vector3();
+    const tcpOffset = new THREE.Vector3();
+    const moduleWorld = new THREE.Vector3();
+    const scannerCenter = new THREE.Vector3(-1.55, 1.02, 2.35);
+    const scannerTcpTarget = new THREE.Vector3(-1.55, 1.48, 2.35);
+    const acceptedModuleTarget = new THREE.Vector3(-1.55, 0.68, 2.35);
+    const scannedModuleTarget = new THREE.Vector3();
+    const scannedScale = new THREE.Vector3(0.55, 0.55, 0.55);
+    const approachOffset = new THREE.Vector3(0, 0.48, 0);
+    const scannerVolume = new THREE.Box3(
+      new THREE.Vector3(-2.13, 0.58, 1.77),
+      new THREE.Vector3(-0.97, 1.46, 2.93),
+    );
     const upperLength = 2.76;
     const lowerLength = 2.18;
-    const pid = { kp: 14.5, ki: 0.72, kd: 4.4 };
-    const scannerDrop = new THREE.Vector3(-1.55, 0.92, 2.35);
-    let grabbedModule = null;
+    const contactThreshold = 0.11;
+    const interaction = { state: "idle", module: null, elapsed: 0, pointerHeld: false };
     let activePanel = null;
 
     let frame = 0;
@@ -580,8 +655,14 @@ function RobotArmGame() {
 
     const updatePointerWorld = () => {
       raycaster.setFromCamera(pointer, camera);
+      camera.getWorldDirection(dragPlaneNormal);
+      dragPlane.setFromNormalAndCoplanarPoint(dragPlaneNormal, dragPlaneAnchor);
       if (raycaster.ray.intersectPlane(dragPlane, dragHit)) {
-        pointerWorld.set(clamp(dragHit.x, -3.35, 3.35), 0.78, clamp(dragHit.z, -0.2, 2.85));
+        pointerWorld.set(
+          clamp(dragHit.x, -3.35, 3.35),
+          clamp(dragHit.y, 0.84, 2.55),
+          clamp(dragHit.z, -0.2, 2.85),
+        );
       }
     };
 
@@ -589,10 +670,9 @@ function RobotArmGame() {
       if (event.touches[0]) updatePointer(event.touches[0]);
     };
 
-    const grabNearestModule = (event) => {
+    const beginInteraction = (event) => {
       updatePointer(event);
-      updatePointerWorld();
-      if (grabbedModule) return;
+      if (interaction.state !== "idle") return;
       raycaster.setFromCamera(pointer, camera);
       const pickables = dataModules
         .filter((module) => !module.userData.scanned)
@@ -600,40 +680,32 @@ function RobotArmGame() {
       const [hit] = raycaster.intersectObjects(pickables, true);
       let picked = hit?.object.userData.moduleRoot;
 
-      if (!picked) {
-        let nearestDistance = 0.78;
-        dataModules.forEach((module) => {
-          if (module.userData.scanned) return;
-          const distance = Math.hypot(module.position.x - pointerWorld.x, module.position.z - pointerWorld.z);
-          if (distance < nearestDistance) {
-            picked = module;
-            nearestDistance = distance;
-          }
-        });
-      }
-
       if (picked) {
-        grabbedModule = picked;
-        grabbedModule.userData.grabbed = true;
+        mount.setPointerCapture?.(event.pointerId);
+        interaction.module = picked;
+        interaction.state = "approach";
+        interaction.elapsed = 0;
+        interaction.pointerHeld = true;
+        picked.userData.grabbed = true;
+        picked.getWorldPosition(moduleWorld);
+        dragPlaneAnchor.copy(moduleWorld).add(approachOffset);
+        pointerWorld.copy(dragPlaneAnchor);
+        dragOffset.set(0, 0, 0);
         velocity.set(0, 0, 0);
-        integral.set(0, 0, 0);
       }
     };
 
-    const releaseModule = () => {
-      if (!grabbedModule) return;
-      const released = grabbedModule;
-      grabbedModule = null;
-      released.userData.grabbed = false;
-
-      const dropDistance = Math.hypot(released.position.x - scannerDrop.x, released.position.z - scannerDrop.z);
-      if (dropDistance < 0.95) {
-        released.userData.scanned = true;
-        released.userData.panel.userData.revealed = true;
-        activePanel = released.userData.panel;
-        panels.forEach((panel) => {
-          panel.userData.active = panel === activePanel;
-        });
+    const requestRelease = () => {
+      if (interaction.state === "idle") return;
+      interaction.pointerHeld = false;
+      if (interaction.state === "carry" || interaction.state === "insert") {
+        interaction.state = "release";
+        interaction.elapsed = 0;
+      } else if (interaction.state === "approach" || interaction.state === "close") {
+        interaction.module.userData.grabbed = false;
+        interaction.module = null;
+        interaction.state = "idle";
+        interaction.elapsed = 0;
       }
     };
 
@@ -663,64 +735,147 @@ function RobotArmGame() {
       const dt = Math.min((now - lastTime) / 1000, 0.04);
       lastTime = now;
       frame += 1;
+      interaction.elapsed += dt;
       updatePointerWorld();
 
-      desiredSurface.copy(pointerWorld).add(new THREE.Vector3(0, 0.72, 0));
-      desired.copy(desiredSurface);
-      desired.x = clamp(desired.x, -3.65, 3.65);
-      desired.y = clamp(desired.y, 1.05, 2.2);
-      desired.z = clamp(desired.z, -0.25, 3.0);
+      scene.updateMatrixWorld(true);
+      gripSocket.getWorldPosition(tcpWorld);
+      wrist.getWorldPosition(wristWorld);
+      tcpOffset.copy(tcpWorld).sub(wristWorld);
+      const carried = interaction.module;
+      if (interaction.state === "approach" || interaction.state === "close") {
+        carried.getWorldPosition(moduleWorld);
+        desired.copy(moduleWorld).add(approachOffset);
+      } else if (interaction.state === "carry" || interaction.state === "insert") {
+        desired.copy(pointerWorld).add(dragOffset);
+        carried.getWorldPosition(moduleWorld);
+        const magneticDistance = moduleWorld.distanceTo(scannerCenter);
+        if (magneticDistance < 1.25) {
+          const magneticStrength = THREE.MathUtils.smoothstep(1.25 - magneticDistance, 0, 1.25) * 0.72;
+          desired.lerp(scannerTcpTarget, magneticStrength);
+        }
+      } else if (interaction.state === "idle") {
+        desired.copy(pointerWorld);
+      }
+      desired.x = clamp(desired.x, -3.15, 3.15);
+      desired.y = clamp(desired.y, 1.0, 2.45);
+      desired.z = clamp(desired.z, 0, 2.75);
 
-      error.copy(desired).sub(tracked);
-      integral.addScaledVector(error, dt);
-      integral.clampScalar(-1.25, 1.25);
-      const derivative = error.clone().sub(lastError).multiplyScalar(1 / Math.max(dt, 0.001));
-      const gain = grabbedModule
-        ? { kp: 46, ki: 0.08, kd: 10.5, damping: 0.58, follow: 0.72, snap: 0.2 }
-        : { ...pid, damping: 0.875, follow: 0.28 };
-      const acceleration = error
-        .clone()
-        .multiplyScalar(gain.kp)
-        .add(integral.clone().multiplyScalar(gain.ki))
-        .add(derivative.multiplyScalar(gain.kd));
+      ikTarget.copy(desired).sub(tcpOffset);
+      ikTarget.x = clamp(ikTarget.x, -3.25, 3.25);
+      ikTarget.y = clamp(ikTarget.y, 0.72, 2.65);
+      ikTarget.z = clamp(ikTarget.z, -0.2, 2.85);
+      error.copy(ikTarget).sub(tracked);
+      const isManipulating = interaction.state !== "idle";
+      const kp = isManipulating ? 16 : 10;
+      const kd = isManipulating ? 7 : 6;
+      const maxAcceleration = isManipulating ? 9 : 6;
+      const maxVelocity = isManipulating ? 2.15 : 1.45;
+      acceleration.copy(error).multiplyScalar(kp).addScaledVector(velocity, -kd);
+      acceleration.clampLength(0, maxAcceleration);
       velocity.addScaledVector(acceleration, dt);
-      velocity.multiplyScalar(gain.damping);
+      velocity.clampLength(0, maxVelocity);
       tracked.addScaledVector(velocity, dt);
-      if (grabbedModule) tracked.lerp(desired, gain.snap);
-      lastError.copy(error);
+      tracked.x = clamp(tracked.x, -3.25, 3.25);
+      tracked.y = clamp(tracked.y, 0.72, 2.65);
+      tracked.z = clamp(tracked.z, -0.2, 2.85);
 
       solveArm();
+      scene.updateMatrixWorld(true);
+      gripSocket.getWorldPosition(tcpWorld);
 
-      target.position.copy(tracked);
-      targetRing.position.copy(tracked);
+      const contactDistance = tcpWorld.distanceTo(desired);
+      if (interaction.state === "approach" && interaction.pointerHeld && contactDistance <= contactThreshold) {
+        interaction.state = "close";
+        interaction.elapsed = 0;
+      } else if (interaction.state === "close" && contactDistance > contactThreshold) {
+        interaction.state = "approach";
+        interaction.elapsed = 0;
+      } else if (
+        interaction.state === "close" &&
+        interaction.pointerHeld &&
+        interaction.elapsed > 0.18 &&
+        contactDistance <= contactThreshold
+      ) {
+        gripSocket.attach(carried);
+        carried.position.set(0, -0.48, 0);
+        carried.rotation.set(0, 0, 0);
+        dragPlaneAnchor.copy(tcpWorld);
+        updatePointerWorld();
+        dragOffset.copy(tcpWorld).sub(pointerWorld);
+        interaction.state = "carry";
+        interaction.elapsed = 0;
+      }
+
+      let scannerReady = false;
+      if (interaction.state === "carry" || interaction.state === "insert") {
+        carried.getWorldPosition(moduleWorld);
+        scannerReady = scannerVolume.containsPoint(moduleWorld) && moduleWorld.distanceTo(scannerCenter) < 0.38;
+        interaction.state = scannerReady ? "insert" : "carry";
+      }
+      if (interaction.state === "release" && interaction.elapsed > 0.2) {
+        const released = interaction.module;
+        scene.updateMatrixWorld(true);
+        released.getWorldPosition(moduleWorld);
+        const acceptedAtRelease =
+          scannerVolume.containsPoint(moduleWorld) && moduleWorld.distanceTo(scannerCenter) < 0.38;
+        scene.attach(released);
+        released.userData.grabbed = false;
+        if (acceptedAtRelease) {
+          released.userData.scanned = true;
+          released.position.copy(acceptedModuleTarget);
+          released.rotation.set(0, 0, 0);
+          released.userData.panel.userData.revealed = true;
+          activePanel = released.userData.panel;
+          panels.forEach((panel) => {
+            panel.userData.active = panel === activePanel;
+          });
+        } else {
+          released.position.copy(released.userData.home);
+          released.rotation.set(0, 0, 0);
+        }
+        interaction.state = "idle";
+        interaction.module = null;
+        interaction.pointerHeld = false;
+        interaction.elapsed = 0;
+        velocity.multiplyScalar(0.35);
+      }
+
+      const closedFingers =
+        interaction.state === "close" ||
+        interaction.state === "carry" ||
+        interaction.state === "insert" ||
+        interaction.state === "release";
+      fingerPivots.forEach((pivot) => {
+        const targetAngle = pivot.userData.side * (closedFingers ? -0.06 : 0.22);
+        pivot.rotation.z += (targetAngle - pivot.rotation.z) * 0.2;
+      });
+
+      target.position.copy(tcpWorld);
+      targetRing.position.copy(tcpWorld);
       targetRing.rotation.z += 0.014;
       mouseTarget.position.copy(desired);
       mouseTarget.rotation.z -= 0.018;
-      aimLineGeometry.setFromPoints([tracked, desired]);
+      aimLineGeometry.setFromPoints([tcpWorld, desired]);
       scannerRing.rotation.z -= 0.018;
-      scannerBeam.material.opacity += ((grabbedModule ? 0.2 : 0.08) - scannerBeam.material.opacity) * 0.08;
-      tracePoints.push(tracked.clone());
-      tracePoints.shift();
+      const scannerFeedback = scannerReady ? 0x82ffb0 : carried ? 0x7fced5 : 0x5b8790;
+      scannerRing.material.color.setHex(scannerFeedback);
+      scannerGate.material.color.setHex(scannerFeedback);
+      scannerGate.material.opacity += ((scannerReady ? 0.38 : carried ? 0.2 : 0.1) - scannerGate.material.opacity) * 0.12;
+      scannerBeam.material.opacity += ((scannerReady ? 0.3 : carried ? 0.16 : 0.06) - scannerBeam.material.opacity) * 0.08;
+      const oldestTracePoint = tracePoints.shift();
+      oldestTracePoint.copy(tcpWorld);
+      tracePoints.push(oldestTracePoint);
       traceGeometry.setFromPoints(tracePoints);
 
       dataModules.forEach((module, index) => {
-        if (module === grabbedModule) {
-          module.position.lerp(tracked.clone().add(carryOffset), gain.follow);
-          module.rotation.x += 0.035;
-          module.rotation.y += 0.045;
-          return;
-        }
+        if (module === interaction.module) return;
 
         if (module.userData.scanned) {
-          module.position.lerp(
-            new THREE.Vector3(
-              scannerDrop.x + Math.sin(index * 1.7) * 0.22,
-              0.66 + index * 0.03,
-              scannerDrop.z + Math.cos(index * 1.7) * 0.22,
-            ),
-            0.08,
-          );
-          module.scale.lerp(new THREE.Vector3(0.55, 0.55, 0.55), 0.08);
+          scannedModuleTarget.copy(scannerCenter);
+          scannedModuleTarget.y += -0.34 + index * 0.025;
+          module.position.lerp(scannedModuleTarget, 0.08);
+          module.scale.lerp(scannedScale, 0.08);
         } else {
           module.position.lerp(module.userData.home, 0.04);
           module.rotation.y += 0.002;
@@ -738,9 +893,12 @@ function RobotArmGame() {
         panel.scale.setScalar(isActive ? 1.08 : 1);
       });
 
-      camera.position.x += (5.2 + pointer.x * 0.28 - camera.position.x) * 0.012;
-      camera.position.y += (4.35 + pointer.y * 0.12 - camera.position.y) * 0.012;
-      camera.position.z += (8.6 - pointer.y * 0.12 - camera.position.z) * 0.012;
+      const freezeParallax = interaction.state !== "idle";
+      if (!freezeParallax) {
+        camera.position.x += (5.2 + pointer.x * 0.28 - camera.position.x) * 0.012;
+        camera.position.y += (4.35 + pointer.y * 0.12 - camera.position.y) * 0.012;
+        camera.position.z += (8.6 - pointer.y * 0.12 - camera.position.z) * 0.012;
+      }
       camera.lookAt(0, 1.42, 1.1);
 
       renderer.render(scene, camera);
@@ -749,9 +907,9 @@ function RobotArmGame() {
 
     setSize();
     mount.addEventListener("pointermove", updatePointer);
-    mount.addEventListener("pointerdown", grabNearestModule);
-    mount.addEventListener("pointerup", releaseModule);
-    mount.addEventListener("pointercancel", releaseModule);
+    mount.addEventListener("pointerdown", beginInteraction);
+    mount.addEventListener("pointerup", requestRelease);
+    mount.addEventListener("pointercancel", requestRelease);
     mount.addEventListener("touchmove", updateTouch, { passive: true });
     window.addEventListener("resize", setSize);
     animationId = requestAnimationFrame(animate);
@@ -759,11 +917,13 @@ function RobotArmGame() {
     return () => {
       cancelAnimationFrame(animationId);
       mount.removeEventListener("pointermove", updatePointer);
-      mount.removeEventListener("pointerdown", grabNearestModule);
-      mount.removeEventListener("pointerup", releaseModule);
-      mount.removeEventListener("pointercancel", releaseModule);
+      mount.removeEventListener("pointerdown", beginInteraction);
+      mount.removeEventListener("pointerup", requestRelease);
+      mount.removeEventListener("pointercancel", requestRelease);
       mount.removeEventListener("touchmove", updateTouch);
       window.removeEventListener("resize", setSize);
+      environmentRenderTarget.dispose();
+      pmremGenerator.dispose();
       renderer.dispose();
       mount.removeChild(renderer.domElement);
       scene.traverse((object) => {
@@ -774,6 +934,8 @@ function RobotArmGame() {
         }
       });
       panels.forEach((panel) => panel.userData.texture.dispose());
+      dataModules.forEach((module) => module.userData.labelTexture.dispose());
+      scannerLabelTexture.dispose();
     };
   }, []);
 
