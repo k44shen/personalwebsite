@@ -70,11 +70,11 @@ function RobotArmGame() {
     if (!mount) return undefined;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0x02070d, 8, 23);
+    scene.fog = new THREE.Fog(0x02070d, 7, 21);
 
-    const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 100);
-    camera.position.set(0, 4.4, 11.5);
-    camera.lookAt(0, 1.6, 0);
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+    camera.position.set(5.2, 4.35, 8.6);
+    camera.lookAt(0, 1.45, 1.1);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -85,15 +85,25 @@ function RobotArmGame() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x02070d, 1);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mount.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0x7ab6ff, 0.62));
+    scene.add(new THREE.AmbientLight(0x9ecbff, 0.36));
 
-    const key = new THREE.DirectionalLight(0xffffff, 2.8);
-    key.position.set(4, 8, 6);
-    const rim = new THREE.PointLight(0x22ddff, 26, 18);
+    const key = new THREE.DirectionalLight(0xffffff, 3.2);
+    key.position.set(4.5, 8, 5.5);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.camera.near = 1;
+    key.shadow.camera.far = 18;
+    key.shadow.camera.left = -7;
+    key.shadow.camera.right = 7;
+    key.shadow.camera.top = 7;
+    key.shadow.camera.bottom = -7;
+    const rim = new THREE.PointLight(0x22ddff, 16, 18);
     rim.position.set(-4.5, 3.4, 4);
-    const ember = new THREE.PointLight(0xffb23f, 16, 16);
+    const ember = new THREE.PointLight(0xffb23f, 10, 16);
     ember.position.set(4.5, 2.6, -2.5);
     scene.add(key, rim, ember);
 
@@ -101,6 +111,18 @@ function RobotArmGame() {
     grid.material.transparent = true;
     grid.material.opacity = 0.23;
     scene.add(grid);
+
+    const workPlane = new THREE.Mesh(
+      new THREE.BoxGeometry(7.8, 0.18, 5.4),
+      new THREE.MeshStandardMaterial({
+        color: 0x0a121a,
+        metalness: 0.42,
+        roughness: 0.68,
+      }),
+    );
+    workPlane.position.set(0, 0.22, 1.4);
+    workPlane.receiveShadow = true;
+    scene.add(workPlane);
 
     const arena = new THREE.Mesh(
       new THREE.RingGeometry(2.2, 6.9, 128),
@@ -194,7 +216,7 @@ function RobotArmGame() {
       return cable;
     };
 
-    const makeDataModule = ({ color, accent, shape }, position, panel) => {
+    const makeDataModule = ({ color, accent }, position, panel) => {
       const group = new THREE.Group();
       group.position.copy(position);
       group.userData.home = position.clone();
@@ -203,43 +225,52 @@ function RobotArmGame() {
       group.userData.floatOffset = Math.random() * Math.PI * 2;
 
       const shellMat = new THREE.MeshStandardMaterial({
-        color,
-        emissive: color,
-        emissiveIntensity: 0.18,
-        metalness: 0.45,
-        roughness: 0.24,
+        color: 0x111a22,
+        metalness: 0.62,
+        roughness: 0.34,
       });
       const accentMat = new THREE.MeshStandardMaterial({
         color: accent,
         emissive: accent,
-        emissiveIntensity: 0.75,
+        emissiveIntensity: 0.55,
         metalness: 0.2,
         roughness: 0.2,
       });
+      const windowMat = new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: 0.42,
+        metalness: 0.2,
+        roughness: 0.18,
+      });
 
-      const core =
-        shape === "sphere"
-          ? new THREE.Mesh(new THREE.SphereGeometry(0.28, 28, 18), shellMat)
-          : shape === "cylinder"
-            ? new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.44, 28), shellMat)
-            : shape === "octa"
-              ? new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), shellMat)
-              : new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.44, 0.44), shellMat);
-
-      core.rotation.set(0.4, 0.7, 0.2);
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.018, 8, 48), accentMat);
-      ring.rotation.x = Math.PI / 2;
-      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.56, 0.08), graphite);
-      handle.position.y = -0.02;
-      handle.position.x = 0.42;
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.3, 0.92), shellMat);
+      body.position.y = 0.15;
+      const window = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.035, 0.48), windowMat);
+      window.position.set(0, 0.32, 0.05);
+      const spine = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.96), accentMat);
+      spine.position.set(-0.37, 0.34, 0);
+      const handle = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.028, 8, 36), graphite);
+      handle.rotation.x = Math.PI / 2;
+      handle.position.set(0.38, 0.26, 0.34);
+      const feet = [-0.24, 0.24].map((x) => {
+        const foot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.18), rubber);
+        foot.position.set(x, -0.05, -0.32);
+        return foot;
+      });
       const beacon = new THREE.PointLight(accent, 1.4, 2.6);
       beacon.position.y = 0.35;
-      group.add(core, ring, handle, beacon);
+      group.add(body, window, spine, handle, ...feet, beacon);
+      group.traverse((object) => {
+        object.castShadow = true;
+        object.receiveShadow = true;
+        object.userData.moduleRoot = group;
+      });
       return group;
     };
 
     const scanner = new THREE.Group();
-    scanner.position.set(0, 0, 2.45);
+    scanner.position.set(-1.55, 0.32, 2.35);
     scene.add(scanner);
     const scannerBase = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.12, 0.22, 64), graphite);
     scannerBase.position.y = 0.11;
@@ -255,7 +286,7 @@ function RobotArmGame() {
     );
     scannerWell.position.y = 0.34;
     const scannerBeam = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.42, 0.86, 4.6, 48, 1, true),
+      new THREE.CylinderGeometry(0.34, 0.74, 1.9, 48, 1, true),
       new THREE.MeshBasicMaterial({
         color: 0x38d5ff,
         transparent: true,
@@ -264,7 +295,7 @@ function RobotArmGame() {
         depthWrite: false,
       }),
     );
-    scannerBeam.position.y = 2.45;
+    scannerBeam.position.y = 1.2;
     const scannerRing = new THREE.Mesh(
       new THREE.TorusGeometry(0.78, 0.028, 8, 88),
       new THREE.MeshBasicMaterial({ color: 0x38d5ff, transparent: true, opacity: 0.78 }),
@@ -272,6 +303,10 @@ function RobotArmGame() {
     scannerRing.rotation.x = Math.PI / 2;
     scannerRing.position.y = 0.48;
     scanner.add(scannerBase, scannerWell, scannerBeam, scannerRing);
+    scanner.traverse((object) => {
+      object.castShadow = true;
+      object.receiveShadow = true;
+    });
 
     const base = new THREE.Group();
     scene.add(base);
@@ -453,26 +488,32 @@ function RobotArmGame() {
     const dataModules = [
       makeDataModule(
         { color: 0x174bff, accent: 0x38d5ff, shape: "sphere" },
-        new THREE.Vector3(-3.2, 3.05, 1.98),
+        new THREE.Vector3(-2.9, 0.72, 1.9),
         panels[0],
       ),
       makeDataModule(
         { color: 0xff8c24, accent: 0xffd27a, shape: "box" },
-        new THREE.Vector3(3.05, 3.25, 2.12),
+        new THREE.Vector3(2.55, 0.72, 2.25),
         panels[1],
       ),
       makeDataModule(
         { color: 0x6f48ff, accent: 0xb79cff, shape: "octa" },
-        new THREE.Vector3(-3.0, 2.05, 1.2),
+        new THREE.Vector3(-2.55, 0.72, 0.42),
         panels[2],
       ),
       makeDataModule(
         { color: 0x1fc77c, accent: 0x64e6a2, shape: "cylinder" },
-        new THREE.Vector3(3.05, 2.35, 1.45),
+        new THREE.Vector3(2.5, 0.72, 0.58),
         panels[3],
       ),
     ];
     dataModules.forEach((module) => scene.add(module));
+    scene.traverse((object) => {
+      if (object.isMesh && object.material?.isMeshStandardMaterial) {
+        object.castShadow = true;
+        object.receiveShadow = true;
+      }
+    });
 
     const desired = new THREE.Vector3(0.9, 2.35, 0.8);
     const tracked = desired.clone();
@@ -481,10 +522,15 @@ function RobotArmGame() {
     const error = new THREE.Vector3();
     const lastError = new THREE.Vector3();
     const pointer = new THREE.Vector2(0.18, 0.04);
+    const pointerWorld = new THREE.Vector3(0.5, 0.78, 1.4);
+    const desiredSurface = new THREE.Vector3(0.5, 1.36, 1.4);
+    const raycaster = new THREE.Raycaster();
+    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.78);
+    const dragHit = new THREE.Vector3();
     const upperLength = 2.76;
     const lowerLength = 2.18;
     const pid = { kp: 14.5, ki: 0.72, kd: 4.4 };
-    const scannerDrop = new THREE.Vector3(0, 3.45, 2.45);
+    const scannerDrop = new THREE.Vector3(-1.55, 0.92, 2.35);
     let grabbedModule = null;
     let activePanel = null;
 
@@ -505,24 +551,42 @@ function RobotArmGame() {
       pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
     };
 
+    const updatePointerWorld = () => {
+      raycaster.setFromCamera(pointer, camera);
+      if (raycaster.ray.intersectPlane(dragPlane, dragHit)) {
+        pointerWorld.set(clamp(dragHit.x, -3.35, 3.35), 0.78, clamp(dragHit.z, -0.2, 2.85));
+      }
+    };
+
     const updateTouch = (event) => {
       if (event.touches[0]) updatePointer(event.touches[0]);
     };
 
-    const grabNearestModule = () => {
+    const grabNearestModule = (event) => {
+      updatePointer(event);
+      updatePointerWorld();
       if (grabbedModule) return;
-      let nearest = null;
-      let nearestDistance = 1.55;
-      dataModules.forEach((module) => {
-        if (module.userData.scanned) return;
-        const distance = module.position.distanceTo(tracked);
-        if (distance < nearestDistance) {
-          nearest = module;
-          nearestDistance = distance;
-        }
-      });
-      if (nearest) {
-        grabbedModule = nearest;
+      raycaster.setFromCamera(pointer, camera);
+      const pickables = dataModules
+        .filter((module) => !module.userData.scanned)
+        .flatMap((module) => module.children);
+      const [hit] = raycaster.intersectObjects(pickables, true);
+      let picked = hit?.object.userData.moduleRoot;
+
+      if (!picked) {
+        let nearestDistance = 0.78;
+        dataModules.forEach((module) => {
+          if (module.userData.scanned) return;
+          const distance = Math.hypot(module.position.x - pointerWorld.x, module.position.z - pointerWorld.z);
+          if (distance < nearestDistance) {
+            picked = module;
+            nearestDistance = distance;
+          }
+        });
+      }
+
+      if (picked) {
+        grabbedModule = picked;
         grabbedModule.userData.grabbed = true;
       }
     };
@@ -533,7 +597,8 @@ function RobotArmGame() {
       grabbedModule = null;
       released.userData.grabbed = false;
 
-      if (released.position.distanceTo(scannerDrop) < 1.35) {
+      const dropDistance = Math.hypot(released.position.x - scannerDrop.x, released.position.z - scannerDrop.z);
+      if (dropDistance < 0.95) {
         released.userData.scanned = true;
         released.userData.panel.userData.revealed = true;
         activePanel = released.userData.panel;
@@ -569,11 +634,17 @@ function RobotArmGame() {
       const dt = Math.min((now - lastTime) / 1000, 0.04);
       lastTime = now;
       frame += 1;
+      updatePointerWorld();
 
-      desired.set(pointer.x * 4.45, 2.35 + pointer.y * 1.62, 1.45 + pointer.y * 1.25);
-      desired.x = clamp(desired.x, -4.35, 4.35);
-      desired.y = clamp(desired.y, 0.95, 4.25);
-      desired.z = clamp(desired.z, -0.45, 3.25);
+      if (grabbedModule) {
+        desiredSurface.copy(grabbedModule.position).add(new THREE.Vector3(0, 0.82, 0));
+      } else {
+        desiredSurface.copy(pointerWorld).add(new THREE.Vector3(0, 0.7, 0));
+      }
+      desired.copy(desiredSurface);
+      desired.x = clamp(desired.x, -3.65, 3.65);
+      desired.y = clamp(desired.y, 1.05, 2.2);
+      desired.z = clamp(desired.z, -0.25, 3.0);
 
       error.copy(desired).sub(tracked);
       integral.addScaledVector(error, dt);
@@ -602,9 +673,9 @@ function RobotArmGame() {
 
       dataModules.forEach((module, index) => {
         if (module === grabbedModule) {
-          module.position.lerp(tracked, 0.28);
-          module.rotation.x += 0.08;
-          module.rotation.y += 0.1;
+          module.position.lerp(pointerWorld, 0.26);
+          module.rotation.x += 0.035;
+          module.rotation.y += 0.045;
           return;
         }
 
@@ -612,17 +683,15 @@ function RobotArmGame() {
           module.position.lerp(
             new THREE.Vector3(
               scannerDrop.x + Math.sin(index * 1.7) * 0.22,
-              0.54 + index * 0.055,
+              0.66 + index * 0.03,
               scannerDrop.z + Math.cos(index * 1.7) * 0.22,
             ),
             0.08,
           );
           module.scale.lerp(new THREE.Vector3(0.55, 0.55, 0.55), 0.08);
         } else {
-          const hoverY = module.userData.home.y + Math.sin(frame * 0.025 + module.userData.floatOffset) * 0.08;
-          module.position.y += (hoverY - module.position.y) * 0.05;
-          module.rotation.y += 0.01;
-          module.rotation.x += 0.004;
+          module.position.lerp(module.userData.home, 0.04);
+          module.rotation.y += 0.002;
         }
       });
 
@@ -637,10 +706,10 @@ function RobotArmGame() {
         panel.scale.setScalar(isActive ? 1.08 : 1);
       });
 
-      camera.position.x += (pointer.x * 1.6 - camera.position.x) * 0.018;
-      camera.position.y += (4.4 + pointer.y * 0.42 - camera.position.y) * 0.018;
-      camera.position.z += (11.5 - pointer.y * 0.48 - camera.position.z) * 0.018;
-      camera.lookAt(0, 1.7, 0);
+      camera.position.x += (5.2 + pointer.x * 0.28 - camera.position.x) * 0.012;
+      camera.position.y += (4.35 + pointer.y * 0.12 - camera.position.y) * 0.012;
+      camera.position.z += (8.6 - pointer.y * 0.12 - camera.position.z) * 0.012;
+      camera.lookAt(0, 1.42, 1.1);
 
       renderer.render(scene, camera);
       animationId = requestAnimationFrame(animate);
