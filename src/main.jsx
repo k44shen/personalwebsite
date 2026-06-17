@@ -138,6 +138,59 @@ function RobotArmGame() {
       metalness: 0.9,
       roughness: 0.3,
     });
+    const rubber = new THREE.MeshStandardMaterial({
+      color: 0x05090d,
+      metalness: 0.35,
+      roughness: 0.62,
+    });
+    const cableMat = new THREE.MeshStandardMaterial({
+      color: 0x071015,
+      metalness: 0.18,
+      roughness: 0.55,
+    });
+    const boltMat = new THREE.MeshStandardMaterial({
+      color: 0xd8e3ea,
+      metalness: 0.86,
+      roughness: 0.22,
+    });
+
+    const makeBolt = (radius = 0.045, depth = 0.028) =>
+      new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, depth, 6), boltMat);
+
+    const addBoltRing = (group, count, ringRadius, y, face = "top") => {
+      for (let index = 0; index < count; index += 1) {
+        const angle = (index / count) * Math.PI * 2;
+        const bolt = makeBolt();
+        bolt.position.set(Math.cos(angle) * ringRadius, y, Math.sin(angle) * ringRadius);
+        bolt.rotation.x = Math.PI / 2;
+        if (face === "side") bolt.rotation.z = Math.PI / 2;
+        group.add(bolt);
+      }
+    };
+
+    const makeLinkShell = (length, bottomRadius, topRadius, material) => {
+      const shell = new THREE.Mesh(
+        new THREE.CylinderGeometry(topRadius, bottomRadius, length, 28, 1, false),
+        material,
+      );
+      shell.position.y = length / 2;
+      return shell;
+    };
+
+    const addTwinRails = (group, length, width, yOffset, material) => {
+      [-1, 1].forEach((side) => {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.13, length, 0.18), material);
+        rail.position.set(side * width, yOffset + length / 2, 0);
+        group.add(rail);
+      });
+    };
+
+    const addCable = (group, points) => {
+      const curve = new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point)));
+      const cable = new THREE.Mesh(new THREE.TubeGeometry(curve, 32, 0.025, 8, false), cableMat);
+      group.add(cable);
+      return cable;
+    };
 
     const base = new THREE.Group();
     scene.add(base);
@@ -145,41 +198,107 @@ function RobotArmGame() {
     const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.22, 1.55, 0.48, 64), graphite);
     pedestal.position.y = 0.24;
     base.add(pedestal);
+    addBoltRing(base, 14, 1.18, 0.5);
 
     const turntable = new THREE.Mesh(new THREE.CylinderGeometry(0.82, 0.82, 0.3, 64), metal);
     turntable.position.y = 0.64;
     base.add(turntable);
+    const bearing = new THREE.Mesh(new THREE.TorusGeometry(0.86, 0.035, 10, 80), amber);
+    bearing.position.y = 0.8;
+    bearing.rotation.x = Math.PI / 2;
+    base.add(bearing);
 
     const shoulder = new THREE.Group();
     shoulder.position.y = 0.84;
     base.add(shoulder);
-    shoulder.add(new THREE.Mesh(new THREE.SphereGeometry(0.43, 36, 20), amber));
+    const shoulderMotor = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.86, 48), graphite);
+    shoulderMotor.rotation.z = Math.PI / 2;
+    shoulder.add(shoulderMotor);
+    const shoulderCapA = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.1, 48), graphite);
+    shoulderCapA.rotation.z = Math.PI / 2;
+    shoulderCapA.position.x = -0.48;
+    const shoulderCapB = shoulderCapA.clone();
+    shoulderCapB.position.x = 0.48;
+    const shoulderTrimA = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.022, 8, 64), amber);
+    shoulderTrimA.rotation.y = Math.PI / 2;
+    shoulderTrimA.position.x = -0.54;
+    const shoulderTrimB = shoulderTrimA.clone();
+    shoulderTrimB.position.x = 0.54;
+    shoulder.add(shoulderCapA, shoulderCapB);
+    shoulder.add(shoulderTrimA, shoulderTrimB);
+    addBoltRing(shoulderCapA, 8, 0.34, 0, "side");
+    addBoltRing(shoulderCapB, 8, 0.34, 0, "side");
 
     const upper = new THREE.Group();
     shoulder.add(upper);
-    const upperArm = new THREE.Mesh(new THREE.BoxGeometry(0.46, 2.76, 0.56), blue);
+    const upperArm = makeLinkShell(2.62, 0.34, 0.27, blue);
     upperArm.position.y = 1.38;
+    upperArm.scale.x = 0.82;
+    upperArm.scale.z = 0.62;
     upper.add(upperArm);
+    addTwinRails(upper, 2.45, 0.43, 0.18, graphite);
+    addCable(upper, [
+      [-0.34, 0.2, -0.28],
+      [-0.58, 0.95, -0.34],
+      [-0.5, 1.85, -0.31],
+      [-0.28, 2.54, -0.26],
+    ]);
 
     const elbow = new THREE.Group();
     elbow.position.y = 2.76;
     upper.add(elbow);
-    elbow.add(new THREE.Mesh(new THREE.SphereGeometry(0.34, 32, 18), amber));
+    const elbowMotor = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.78, 48), amber);
+    elbowMotor.rotation.z = Math.PI / 2;
+    elbow.add(elbowMotor);
+    const elbowRing = new THREE.Mesh(new THREE.TorusGeometry(0.39, 0.026, 8, 64), boltMat);
+    elbowRing.rotation.y = Math.PI / 2;
+    elbow.add(elbowRing);
 
     const forearm = new THREE.Group();
     elbow.add(forearm);
-    const lowerArm = new THREE.Mesh(new THREE.BoxGeometry(0.34, 2.18, 0.46), metal);
+    const lowerArm = makeLinkShell(2.04, 0.25, 0.19, metal);
     lowerArm.position.y = 1.09;
+    lowerArm.scale.x = 0.86;
+    lowerArm.scale.z = 0.62;
     forearm.add(lowerArm);
+    addTwinRails(forearm, 1.86, 0.31, 0.16, graphite);
+    addCable(forearm, [
+      [0.25, 0.1, -0.23],
+      [0.46, 0.66, -0.28],
+      [0.42, 1.38, -0.23],
+      [0.21, 1.98, -0.18],
+    ]);
 
     const wrist = new THREE.Group();
     wrist.position.y = 2.18;
     forearm.add(wrist);
-    wrist.add(new THREE.Mesh(new THREE.SphereGeometry(0.27, 28, 18), blue));
-    const tool = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.7, 5), amber);
-    tool.position.y = 0.48;
-    tool.rotation.y = Math.PI / 5;
-    wrist.add(tool);
+    const wristMotor = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.58, 36), blue);
+    wristMotor.rotation.z = Math.PI / 2;
+    const wristCollar = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.026, 8, 60), amber);
+    wristCollar.rotation.y = Math.PI / 2;
+    wrist.add(wristMotor, wristCollar);
+
+    const toolBase = new THREE.Group();
+    toolBase.position.y = 0.34;
+    wrist.add(toolBase);
+    const palm = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.28, 0.5), graphite);
+    palm.position.y = 0.04;
+    toolBase.add(palm);
+    [-1, 1].forEach((side) => {
+      const knuckle = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.22, 20), amber);
+      knuckle.rotation.x = Math.PI / 2;
+      knuckle.position.set(side * 0.28, 0.23, 0.2);
+      const finger = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.74, 0.13), metal);
+      finger.position.set(side * 0.29, 0.55, 0.29);
+      finger.rotation.z = side * 0.18;
+      const fingerTip = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.3, 0.13), graphite);
+      fingerTip.position.set(side * 0.35, 0.94, 0.3);
+      fingerTip.rotation.z = side * 0.34;
+      const pad = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.22, 0.15), rubber);
+      pad.position.set(side * 0.39, 1.04, 0.34);
+      pad.rotation.z = side * 0.18;
+      toolBase.add(knuckle, finger, fingerTip, pad);
+    });
 
     const target = new THREE.Mesh(
       new THREE.SphereGeometry(0.13, 24, 16),
