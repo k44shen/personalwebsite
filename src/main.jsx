@@ -1,202 +1,392 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  ArrowUpRight,
-  Code2,
-  Contact,
-  Cpu,
-  Download,
-  Mail,
-  MoveRight,
-  Wrench,
-} from "lucide-react";
+import * as THREE from "three";
 import "./styles.css";
 
-const projects = [
-  {
-    status: "Prototype",
-    title: "Robotic Hand Gesture Controller",
-    description:
-      "Computer vision pipeline that maps human hand poses to servo-driven finger movement.",
-    stack: "Python · OpenCV · Arduino · CAD · Servo Control",
-  },
-  {
-    status: "Deployed",
-    title: "Autonomous Rover Navigation",
-    description:
-      "Sensor fusion and planning stack for reliable indoor navigation under noisy conditions.",
-    stack: "ROS · C++ · LiDAR · Path Planning",
-  },
-  {
-    status: "Research",
-    title: "Mechatronics Lab Notes",
-    description:
-      "A collection of mechanisms, electronics experiments, and small control systems.",
-    stack: "Embedded C · Fusion 360 · PCB Design",
-  },
-];
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
-const skills = [
-  "Robotics",
-  "Control Systems",
-  "Computer Vision",
-  "Embedded Systems",
-  "React",
-  "Python",
-  "C++",
-  "CAD",
-];
+function makePanelTexture({ title, kicker, lines, accent = "#38d5ff" }) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1200;
+  canvas.height = 640;
+  const ctx = canvas.getContext("2d");
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "rgba(4, 10, 16, 0.78)";
+  ctx.strokeStyle = "rgba(125, 222, 255, 0.72)";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.roundRect(28, 28, canvas.width - 56, canvas.height - 56, 26);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(255, 178, 63, 0.62)";
+  ctx.beginPath();
+  ctx.moveTo(78, 118);
+  ctx.lineTo(360, 118);
+  ctx.stroke();
+
+  ctx.fillStyle = accent;
+  ctx.font = "700 36px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  ctx.fillText(kicker.toUpperCase(), 78, 96);
+
+  ctx.fillStyle = "#f3f8fb";
+  ctx.font = "900 108px Inter, system-ui, sans-serif";
+  ctx.fillText(title, 78, 232);
+
+  ctx.fillStyle = "rgba(222, 238, 247, 0.86)";
+  ctx.font = "500 43px Inter, system-ui, sans-serif";
+  lines.forEach((line, index) => {
+    ctx.fillText(line, 82, 330 + index * 64);
+  });
+
+  return new THREE.CanvasTexture(canvas);
+}
+
+function makePanel(config, position, scale = 1) {
+  const texture = makePanelTexture(config);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    opacity: 0.04,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(3.75 * scale, 2 * scale), material);
+  mesh.position.copy(position);
+  mesh.userData.base = position.clone();
+  mesh.userData.texture = texture;
+  return mesh;
+}
+
+function RobotArmGame() {
+  const mountRef = useRef(null);
+
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return undefined;
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x02070d, 8, 23);
+
+    const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 100);
+    camera.position.set(0, 4.4, 11.5);
+    camera.lookAt(0, 1.6, 0);
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: false,
+      preserveDrawingBuffer: true,
+      powerPreference: "high-performance",
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x02070d, 1);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    mount.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0x7ab6ff, 0.62));
+
+    const key = new THREE.DirectionalLight(0xffffff, 2.8);
+    key.position.set(4, 8, 6);
+    const rim = new THREE.PointLight(0x22ddff, 26, 18);
+    rim.position.set(-4.5, 3.4, 4);
+    const ember = new THREE.PointLight(0xffb23f, 16, 16);
+    ember.position.set(4.5, 2.6, -2.5);
+    scene.add(key, rim, ember);
+
+    const grid = new THREE.GridHelper(22, 44, 0x22ddff, 0x172f3f);
+    grid.material.transparent = true;
+    grid.material.opacity = 0.23;
+    scene.add(grid);
+
+    const arena = new THREE.Mesh(
+      new THREE.RingGeometry(2.2, 6.9, 128),
+      new THREE.MeshStandardMaterial({
+        color: 0x08131d,
+        metalness: 0.46,
+        roughness: 0.7,
+        transparent: true,
+        opacity: 0.76,
+      }),
+    );
+    arena.rotation.x = -Math.PI / 2;
+    arena.position.y = -0.03;
+    scene.add(arena);
+
+    const metal = new THREE.MeshStandardMaterial({
+      color: 0xaab9c8,
+      metalness: 0.78,
+      roughness: 0.28,
+    });
+    const blue = new THREE.MeshStandardMaterial({
+      color: 0x109bd1,
+      emissive: 0x06374b,
+      emissiveIntensity: 0.78,
+      metalness: 0.42,
+      roughness: 0.24,
+    });
+    const amber = new THREE.MeshStandardMaterial({
+      color: 0xffb23f,
+      emissive: 0x733800,
+      emissiveIntensity: 0.62,
+      metalness: 0.24,
+      roughness: 0.24,
+    });
+    const graphite = new THREE.MeshStandardMaterial({
+      color: 0x101923,
+      metalness: 0.9,
+      roughness: 0.3,
+    });
+
+    const base = new THREE.Group();
+    scene.add(base);
+
+    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.22, 1.55, 0.48, 64), graphite);
+    pedestal.position.y = 0.24;
+    base.add(pedestal);
+
+    const turntable = new THREE.Mesh(new THREE.CylinderGeometry(0.82, 0.82, 0.3, 64), metal);
+    turntable.position.y = 0.64;
+    base.add(turntable);
+
+    const shoulder = new THREE.Group();
+    shoulder.position.y = 0.84;
+    base.add(shoulder);
+    shoulder.add(new THREE.Mesh(new THREE.SphereGeometry(0.43, 36, 20), amber));
+
+    const upper = new THREE.Group();
+    shoulder.add(upper);
+    const upperArm = new THREE.Mesh(new THREE.BoxGeometry(0.46, 2.76, 0.56), blue);
+    upperArm.position.y = 1.38;
+    upper.add(upperArm);
+
+    const elbow = new THREE.Group();
+    elbow.position.y = 2.76;
+    upper.add(elbow);
+    elbow.add(new THREE.Mesh(new THREE.SphereGeometry(0.34, 32, 18), amber));
+
+    const forearm = new THREE.Group();
+    elbow.add(forearm);
+    const lowerArm = new THREE.Mesh(new THREE.BoxGeometry(0.34, 2.18, 0.46), metal);
+    lowerArm.position.y = 1.09;
+    forearm.add(lowerArm);
+
+    const wrist = new THREE.Group();
+    wrist.position.y = 2.18;
+    forearm.add(wrist);
+    wrist.add(new THREE.Mesh(new THREE.SphereGeometry(0.27, 28, 18), blue));
+    const tool = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.7, 5), amber);
+    tool.position.y = 0.48;
+    tool.rotation.y = Math.PI / 5;
+    wrist.add(tool);
+
+    const target = new THREE.Mesh(
+      new THREE.SphereGeometry(0.13, 24, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0x78f2ff,
+        emissive: 0x23dfff,
+        emissiveIntensity: 1.5,
+      }),
+    );
+    scene.add(target);
+
+    const targetRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.42, 0.012, 10, 96),
+      new THREE.MeshBasicMaterial({ color: 0x5bf3ff, transparent: true, opacity: 0.8 }),
+    );
+    targetRing.rotation.x = Math.PI / 2;
+    scene.add(targetRing);
+
+    const lineMaterial = new THREE.LineBasicMaterial({
+      color: 0x38d5ff,
+      transparent: true,
+      opacity: 0.34,
+    });
+    const tracePoints = Array.from({ length: 64 }, () => new THREE.Vector3());
+    const traceGeometry = new THREE.BufferGeometry().setFromPoints(tracePoints);
+    const trace = new THREE.Line(traceGeometry, lineMaterial);
+    scene.add(trace);
+
+    const panels = [
+      makePanel(
+        {
+          kicker: "identity",
+          title: "Kevin Shen",
+          lines: ["Robotics, software,", "control systems,", "and mechatronics."],
+        },
+        new THREE.Vector3(-3.4, 3.15, -2.3),
+        1.06,
+      ),
+      makePanel(
+        {
+          kicker: "projects",
+          title: "Selected Builds",
+          lines: ["Gesture robot hand", "Autonomous rover", "Embedded experiments"],
+          accent: "#ffb23f",
+        },
+        new THREE.Vector3(3.55, 2.72, -1.75),
+        0.9,
+      ),
+      makePanel(
+        {
+          kicker: "resume",
+          title: "Systems Profile",
+          lines: ["Python · C++ · React", "ROS · CAD · controls", "hardware to interface"],
+        },
+        new THREE.Vector3(-3.95, 1.65, 1.15),
+        0.82,
+      ),
+      makePanel(
+        {
+          kicker: "contact",
+          title: "Docking Bay",
+          lines: ["GitHub", "LinkedIn", "hello@kevinshen.com"],
+          accent: "#64e6a2",
+        },
+        new THREE.Vector3(3.55, 1.35, 1.35),
+        0.78,
+      ),
+    ];
+    panels.forEach((panel) => scene.add(panel));
+
+    const desired = new THREE.Vector3(0.9, 2.35, 0.8);
+    const tracked = desired.clone();
+    const velocity = new THREE.Vector3();
+    const integral = new THREE.Vector3();
+    const error = new THREE.Vector3();
+    const lastError = new THREE.Vector3();
+    const pointer = new THREE.Vector2(0.18, 0.04);
+    const upperLength = 2.76;
+    const lowerLength = 2.18;
+    const pid = { kp: 14.5, ki: 0.72, kd: 4.4 };
+
+    let frame = 0;
+    let animationId = 0;
+    let lastTime = performance.now();
+
+    const setSize = () => {
+      const { width, height } = mount.getBoundingClientRect();
+      renderer.setSize(width, height, false);
+      camera.aspect = width / Math.max(height, 1);
+      camera.updateProjectionMatrix();
+    };
+
+    const updatePointer = (event) => {
+      const rect = mount.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+    };
+
+    const updateTouch = (event) => {
+      if (event.touches[0]) updatePointer(event.touches[0]);
+    };
+
+    const solveArm = () => {
+      const baseHeight = 0.84;
+      const radius = Math.hypot(tracked.x, tracked.z);
+      const vertical = tracked.y - baseHeight;
+      const reach = clamp(Math.hypot(radius, vertical), 0.44, upperLength + lowerLength - 0.05);
+      const yaw = Math.atan2(tracked.x, tracked.z);
+      const shoulderTerm =
+        (upperLength * upperLength + reach * reach - lowerLength * lowerLength) /
+        (2 * upperLength * reach);
+      const elbowTerm =
+        (upperLength * upperLength + lowerLength * lowerLength - reach * reach) /
+        (2 * upperLength * lowerLength);
+      const shoulderAngle = Math.atan2(radius, vertical) - Math.acos(clamp(shoulderTerm, -1, 1));
+      const elbowAngle = Math.PI - Math.acos(clamp(elbowTerm, -1, 1));
+
+      base.rotation.y += (yaw - base.rotation.y) * 0.18;
+      upper.rotation.x += (shoulderAngle - upper.rotation.x) * 0.2;
+      forearm.rotation.x += (elbowAngle - forearm.rotation.x) * 0.22;
+      wrist.rotation.x = -(upper.rotation.x + forearm.rotation.x) * 0.55;
+      wrist.rotation.z = Math.sin(frame * 0.04) * 0.18;
+    };
+
+    const animate = (now) => {
+      const dt = Math.min((now - lastTime) / 1000, 0.04);
+      lastTime = now;
+      frame += 1;
+
+      desired.set(pointer.x * 4.45, 2.35 + pointer.y * 1.62, 1.08 + pointer.y * 0.55);
+      desired.x = clamp(desired.x, -4.35, 4.35);
+      desired.y = clamp(desired.y, 0.95, 4.25);
+      desired.z = clamp(desired.z, -0.45, 3.25);
+
+      error.copy(desired).sub(tracked);
+      integral.addScaledVector(error, dt);
+      integral.clampScalar(-1.25, 1.25);
+      const derivative = error.clone().sub(lastError).multiplyScalar(1 / Math.max(dt, 0.001));
+      const acceleration = error
+        .clone()
+        .multiplyScalar(pid.kp)
+        .add(integral.clone().multiplyScalar(pid.ki))
+        .add(derivative.multiplyScalar(pid.kd));
+      velocity.addScaledVector(acceleration, dt);
+      velocity.multiplyScalar(0.875);
+      tracked.addScaledVector(velocity, dt);
+      lastError.copy(error);
+
+      solveArm();
+
+      target.position.copy(tracked);
+      targetRing.position.copy(tracked);
+      targetRing.rotation.z += 0.014;
+      tracePoints.push(tracked.clone());
+      tracePoints.shift();
+      traceGeometry.setFromPoints(tracePoints);
+
+      panels.forEach((panel, index) => {
+        const distance = tracked.distanceTo(panel.userData.base);
+        const reveal = clamp(1.4 - distance / 2.45, 0, 1);
+        panel.material.opacity += (0.08 + reveal * 0.88 - panel.material.opacity) * 0.08;
+        panel.position.y =
+          panel.userData.base.y + Math.sin(frame * 0.018 + index * 1.7) * (0.04 + reveal * 0.05);
+        panel.lookAt(camera.position);
+        panel.scale.setScalar(1 + reveal * 0.08);
+      });
+
+      camera.position.x += (pointer.x * 1.6 - camera.position.x) * 0.018;
+      camera.position.y += (4.4 + pointer.y * 0.42 - camera.position.y) * 0.018;
+      camera.position.z += (11.5 - pointer.y * 0.48 - camera.position.z) * 0.018;
+      camera.lookAt(0, 1.7, 0);
+
+      renderer.render(scene, camera);
+      animationId = requestAnimationFrame(animate);
+    };
+
+    setSize();
+    mount.addEventListener("pointermove", updatePointer);
+    mount.addEventListener("touchmove", updateTouch, { passive: true });
+    window.addEventListener("resize", setSize);
+    animationId = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animationId);
+      mount.removeEventListener("pointermove", updatePointer);
+      mount.removeEventListener("touchmove", updateTouch);
+      window.removeEventListener("resize", setSize);
+      renderer.dispose();
+      mount.removeChild(renderer.domElement);
+      scene.traverse((object) => {
+        if (object.geometry) object.geometry.dispose();
+        if (object.material) {
+          if (Array.isArray(object.material)) object.material.forEach((item) => item.dispose());
+          else object.material.dispose();
+        }
+      });
+      panels.forEach((panel) => panel.userData.texture.dispose());
+    };
+  }, []);
+
+  return <div className="gameCanvas" ref={mountRef} aria-label="Interactive 3D robotics portfolio" />;
+}
 
 function App() {
   return (
-    <main>
-      <nav className="nav" aria-label="Primary navigation">
-        <a className="brand" href="#home">
-          <Cpu size={18} />
-          Kevin Shen
-        </a>
-        <div className="navLinks">
-          <a href="#projects">Projects</a>
-          <a href="#resume">Resume</a>
-          <a href="#experience">Experience</a>
-          <a href="#contact">Contact</a>
-        </div>
-      </nav>
-
-      <section className="hero" id="home">
-        <div className="heroCopy">
-          <p className="eyebrow">Robotics · Software · Mechatronics</p>
-          <h1>Kevin Shen</h1>
-          <p className="intro">
-            I build intelligent systems across code, hardware, sensors, and
-            mechanical design.
-          </p>
-          <div className="actions">
-            <a className="button primary" href="#projects">
-              View Projects <MoveRight size={17} />
-            </a>
-            <a className="button secondary" href="/resume.pdf">
-              Resume <Download size={17} />
-            </a>
-          </div>
-        </div>
-
-        <div className="handPanel" aria-label="Robotic hand schematic">
-          <div className="readout top">SERVO ARRAY: ONLINE</div>
-          <div className="robotHand">
-            <span className="finger f1" />
-            <span className="finger f2" />
-            <span className="finger f3" />
-            <span className="finger f4" />
-            <span className="thumb" />
-            <span className="palm" />
-            <span className="wrist" />
-          </div>
-          <div className="readout bottom">GRIP FORCE: 42N · SIGNAL: STABLE</div>
-        </div>
-      </section>
-
-      <section className="ticker" aria-label="Technical skills">
-        {skills.map((skill) => (
-          <span key={skill}>{skill}</span>
-        ))}
-      </section>
-
-      <section className="section" id="projects">
-        <div className="sectionHeader">
-          <p className="eyebrow">Selected Builds</p>
-          <h2>Projects</h2>
-        </div>
-        <div className="projectGrid">
-          {projects.map((project) => (
-            <article className="projectCard" key={project.title}>
-              <div className="cardMeta">
-                <span>{project.status}</span>
-                <ArrowUpRight size={18} />
-              </div>
-              <h3>{project.title}</h3>
-              <p>{project.description}</p>
-              <div className="stack">{project.stack}</div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="section twoColumn" id="resume">
-        <div>
-          <p className="eyebrow">Technical Profile</p>
-          <h2>Resume</h2>
-          <p className="sectionText">
-            A focused snapshot of education, engineering experience, technical
-            tools, and shipped work. Replace this text with your current resume
-            summary when you are ready.
-          </p>
-        </div>
-        <div className="specSheet">
-          <div>
-            <span>Focus</span>
-            <strong>Robotics systems, full-stack software, embedded control</strong>
-          </div>
-          <div>
-            <span>Tools</span>
-            <strong>Python, C++, React, ROS, CAD, microcontrollers</strong>
-          </div>
-          <div>
-            <span>Resume PDF</span>
-            <strong>Add `public/resume.pdf` to enable download</strong>
-          </div>
-        </div>
-      </section>
-
-      <section className="section" id="experience">
-        <div className="sectionHeader">
-          <p className="eyebrow">Timeline</p>
-          <h2>Experience</h2>
-        </div>
-        <div className="timeline">
-          <div className="timelineItem">
-            <span className="node" />
-            <div>
-              <h3>Engineering Experience</h3>
-              <p>
-                Add internships, research roles, hackathons, clubs, and build
-                logs here with measurable outcomes.
-              </p>
-            </div>
-          </div>
-          <div className="timelineItem">
-            <span className="node" />
-            <div>
-              <h3>Project Leadership</h3>
-              <p>
-                Highlight systems you owned end to end: requirements,
-                prototyping, testing, iteration, and demos.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="contact" id="contact">
-        <div>
-          <p className="eyebrow">Contact</p>
-          <h2>Let’s build something precise.</h2>
-        </div>
-        <div className="contactLinks">
-          <a href="mailto:hello@kevinshen.com"><Mail size={18} /> Email</a>
-          <a href="https://github.com/" target="_blank" rel="noreferrer">
-            <Code2 size={18} /> GitHub
-          </a>
-          <a href="https://linkedin.com/" target="_blank" rel="noreferrer">
-            <Contact size={18} /> LinkedIn
-          </a>
-        </div>
-      </section>
-
-      <footer>
-        <Wrench size={16} />
-        <span>Designed as a robotics control surface for Kevin Shen.</span>
-      </footer>
+    <main className="gameShell">
+      <RobotArmGame />
     </main>
   );
 }
