@@ -433,6 +433,32 @@ function RobotArmGame() {
     targetRing.rotation.x = Math.PI / 2;
     scene.add(targetRing);
 
+    const mouseTarget = new THREE.Mesh(
+      new THREE.TorusGeometry(0.22, 0.012, 8, 64),
+      new THREE.MeshBasicMaterial({
+        color: 0xffd27a,
+        transparent: true,
+        opacity: 0.86,
+        depthWrite: false,
+      }),
+    );
+    mouseTarget.rotation.x = Math.PI / 2;
+    scene.add(mouseTarget);
+
+    const aimLineGeometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+    ]);
+    const aimLine = new THREE.Line(
+      aimLineGeometry,
+      new THREE.LineBasicMaterial({
+        color: 0xffd27a,
+        transparent: true,
+        opacity: 0.42,
+      }),
+    );
+    scene.add(aimLine);
+
     const lineMaterial = new THREE.LineBasicMaterial({
       color: 0x38d5ff,
       transparent: true,
@@ -527,6 +553,7 @@ function RobotArmGame() {
     const raycaster = new THREE.Raycaster();
     const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.78);
     const dragHit = new THREE.Vector3();
+    const carryOffset = new THREE.Vector3(0, -0.66, 0);
     const upperLength = 2.76;
     const lowerLength = 2.18;
     const pid = { kp: 14.5, ki: 0.72, kd: 4.4 };
@@ -588,6 +615,8 @@ function RobotArmGame() {
       if (picked) {
         grabbedModule = picked;
         grabbedModule.userData.grabbed = true;
+        velocity.set(0, 0, 0);
+        integral.set(0, 0, 0);
       }
     };
 
@@ -636,11 +665,7 @@ function RobotArmGame() {
       frame += 1;
       updatePointerWorld();
 
-      if (grabbedModule) {
-        desiredSurface.copy(grabbedModule.position).add(new THREE.Vector3(0, 0.82, 0));
-      } else {
-        desiredSurface.copy(pointerWorld).add(new THREE.Vector3(0, 0.7, 0));
-      }
+      desiredSurface.copy(pointerWorld).add(new THREE.Vector3(0, 0.72, 0));
       desired.copy(desiredSurface);
       desired.x = clamp(desired.x, -3.65, 3.65);
       desired.y = clamp(desired.y, 1.05, 2.2);
@@ -650,14 +675,18 @@ function RobotArmGame() {
       integral.addScaledVector(error, dt);
       integral.clampScalar(-1.25, 1.25);
       const derivative = error.clone().sub(lastError).multiplyScalar(1 / Math.max(dt, 0.001));
+      const gain = grabbedModule
+        ? { kp: 46, ki: 0.08, kd: 10.5, damping: 0.58, follow: 0.72, snap: 0.2 }
+        : { ...pid, damping: 0.875, follow: 0.28 };
       const acceleration = error
         .clone()
-        .multiplyScalar(pid.kp)
-        .add(integral.clone().multiplyScalar(pid.ki))
-        .add(derivative.multiplyScalar(pid.kd));
+        .multiplyScalar(gain.kp)
+        .add(integral.clone().multiplyScalar(gain.ki))
+        .add(derivative.multiplyScalar(gain.kd));
       velocity.addScaledVector(acceleration, dt);
-      velocity.multiplyScalar(0.875);
+      velocity.multiplyScalar(gain.damping);
       tracked.addScaledVector(velocity, dt);
+      if (grabbedModule) tracked.lerp(desired, gain.snap);
       lastError.copy(error);
 
       solveArm();
@@ -665,6 +694,9 @@ function RobotArmGame() {
       target.position.copy(tracked);
       targetRing.position.copy(tracked);
       targetRing.rotation.z += 0.014;
+      mouseTarget.position.copy(desired);
+      mouseTarget.rotation.z -= 0.018;
+      aimLineGeometry.setFromPoints([tracked, desired]);
       scannerRing.rotation.z -= 0.018;
       scannerBeam.material.opacity += ((grabbedModule ? 0.2 : 0.08) - scannerBeam.material.opacity) * 0.08;
       tracePoints.push(tracked.clone());
@@ -673,7 +705,7 @@ function RobotArmGame() {
 
       dataModules.forEach((module, index) => {
         if (module === grabbedModule) {
-          module.position.lerp(pointerWorld, 0.26);
+          module.position.lerp(tracked.clone().add(carryOffset), gain.follow);
           module.rotation.x += 0.035;
           module.rotation.y += 0.045;
           return;

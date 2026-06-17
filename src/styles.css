@@ -39,7 +39,7 @@ body {
 }
 
 .gameCanvas {
-  cursor: none;
+  cursor: crosshair;
   touch-action: none;
 }
 
