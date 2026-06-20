@@ -78,3 +78,4 @@ export const RECRUITER_CHECKLIST = [
   "Add verified repository or demo links for the selected builds",
   "Add measured fall-detection accuracy and false-positive rate",
 ];
+
