@@ -41,7 +41,7 @@ function artifactCopy(artifact, index) {
   };
 }
 
-export default function RobotArmGame() {
+export default function RobotArmGame({ onScanComplete, onStateChange }) {
   const mountRef = useRef(null);
 
   useEffect(() => {
@@ -284,6 +284,7 @@ export default function RobotArmGame() {
       label.position.set(0, 0.18, 0.48);
       label.rotation.x = -Math.PI / 2;
       group.userData.labelTexture = labelTexture;
+      group.userData.beacon = beacon;
       group.add(body, window, spine, handle, ...feet, beacon, label);
       if (index === 1) {
         for (let pin = 0; pin < 10; pin += 1) {
@@ -304,7 +305,7 @@ export default function RobotArmGame() {
         });
       }
       const hitTarget = new THREE.Mesh(
-        new THREE.BoxGeometry(1.18, 0.72, 1.24),
+        new THREE.BoxGeometry(0.94, 0.54, 1),
         new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
       );
       hitTarget.position.y = 0.24;
@@ -564,20 +565,15 @@ export default function RobotArmGame() {
     const scannerCenter = new THREE.Vector3(-1.55, 1.02, 2.35);
     const scannerTcpTarget = new THREE.Vector3(-1.55, 1.02, 2.35);
     const acceptedModuleTarget = new THREE.Vector3(-1.55, 0.68, 2.35);
-    const scannedModuleTarget = new THREE.Vector3();
-    const scannedScale = new THREE.Vector3(0.55, 0.55, 0.55);
+    const normalScale = new THREE.Vector3(1, 1, 1);
+    const targetScale = new THREE.Vector3(1.07, 1.07, 1.07);
     const approachOffset = new THREE.Vector3(0, 0.18, 0);
-    const scannerVolume = new THREE.Box3(
-      new THREE.Vector3(-2.13, 0.58, 1.77),
-      new THREE.Vector3(-0.97, 1.46, 2.93),
-    );
     const upperLength = 2.76;
     const lowerLength = 2.18;
     const toolLength = 1.42;
     const toolDepth = 0.34;
     const shoulderCenter = new THREE.Vector3(0, 0.84, 0);
     const reachSphere = new THREE.Sphere(shoulderCenter, 4.2);
-    const contactThreshold = 0.11;
     const interaction = { state: "idle", module: null, elapsed: 0 };
     let activePanel = null;
 
@@ -587,6 +583,32 @@ export default function RobotArmGame() {
 
     camera.getWorldDirection(dragPlaneNormal);
     dragPlane.setFromNormalAndCoplanarPoint(dragPlaneNormal, dragPlaneAnchor);
+
+    const transitionTo = (state) => {
+      interaction.state = state;
+      interaction.elapsed = 0;
+      mount.dataset.interactionState = state;
+      onStateChange(state);
+    };
+
+    const resetInteraction = () => {
+      if (interaction.module?.parent !== scene) scene.attach(interaction.module);
+      dataModules.forEach((module) => {
+        module.userData.grabbed = false;
+        module.userData.scanned = false;
+        module.position.copy(module.userData.home);
+        module.rotation.set(0, 0, 0);
+        module.scale.copy(normalScale);
+        module.userData.beacon.intensity = 0.22;
+      });
+      panels.forEach((panel) => {
+        panel.userData.active = false;
+        panel.userData.revealed = false;
+      });
+      activePanel = null;
+      interaction.module = null;
+      transitionTo("idle");
+    };
 
     const setSize = () => {
       const { width, height } = mount.getBoundingClientRect();
@@ -623,11 +645,6 @@ export default function RobotArmGame() {
       updatePointer(event);
       raycaster.setFromCamera(pointer, camera);
 
-      if (interaction.state === "carry" || interaction.state === "insert") {
-        interaction.state = "release";
-        interaction.elapsed = 0;
-        return;
-      }
       if (interaction.state !== "idle") return;
 
       const [identityHit] = raycaster.intersectObjects(identityActionMeshes, false);
@@ -661,10 +678,9 @@ export default function RobotArmGame() {
       if (picked) {
         mount.setPointerCapture?.(event.pointerId);
         interaction.module = picked;
-        interaction.state = "approach";
-        interaction.elapsed = 0;
         picked.userData.grabbed = true;
         picked.getWorldPosition(moduleWorld);
+        transitionTo("targeted");
       }
     };
 
@@ -705,17 +721,15 @@ export default function RobotArmGame() {
       scene.updateMatrixWorld(true);
       gripSocket.getWorldPosition(tcpWorld);
       const carried = interaction.module;
-      if (interaction.state === "approach" || interaction.state === "close") {
+      if (interaction.state === "targeted" || interaction.state === "pickup") {
         carried.getWorldPosition(moduleWorld);
         desired.copy(moduleWorld).add(approachOffset);
-      } else if (interaction.state === "carry" || interaction.state === "insert") {
-        desired.copy(pointerWorld);
-        carried.getWorldPosition(moduleWorld);
-        const magneticDistance = moduleWorld.distanceTo(scannerCenter);
-        if (magneticDistance < 1.25) {
-          const magneticStrength = THREE.MathUtils.smoothstep(1.25 - magneticDistance, 0, 1.25) * 0.72;
-          desired.lerp(scannerTcpTarget, magneticStrength);
-        }
+      } else if (
+        interaction.state === "transporting" ||
+        interaction.state === "scanning" ||
+        interaction.state === "scanned"
+      ) {
+        desired.copy(scannerTcpTarget);
       } else if (interaction.state === "idle") {
         desired.copy(pointerWorld);
       }
@@ -724,61 +738,37 @@ export default function RobotArmGame() {
       gripSocket.getWorldPosition(tcpWorld);
 
       const contactDistance = tcpWorld.distanceTo(desired);
-      if (interaction.state === "approach" && contactDistance <= contactThreshold) {
-        interaction.state = "close";
-        interaction.elapsed = 0;
-      } else if (interaction.state === "close" && contactDistance > contactThreshold) {
-        interaction.state = "approach";
-        interaction.elapsed = 0;
-      } else if (
-        interaction.state === "close" &&
-        interaction.elapsed > 0.18 &&
-        contactDistance <= contactThreshold
-      ) {
+      if (interaction.state === "targeted" && interaction.elapsed > 0.35) {
+        transitionTo("pickup");
+      } else if (interaction.state === "pickup" && interaction.elapsed > 0.2 && contactDistance <= 0.13) {
         gripSocket.attach(carried);
         carried.position.set(0, 0, 0);
         carried.rotation.set(0, 0, 0);
-        interaction.state = "carry";
-        interaction.elapsed = 0;
+        transitionTo("transporting");
       }
 
-      let scannerReady = false;
-      if (interaction.state === "carry" || interaction.state === "insert") {
+      if (interaction.state === "transporting") {
         carried.getWorldPosition(moduleWorld);
-        scannerReady = scannerVolume.containsPoint(moduleWorld) && moduleWorld.distanceTo(scannerCenter) < 0.52;
-        interaction.state = scannerReady ? "insert" : "carry";
-      }
-      if (interaction.state === "release" && interaction.elapsed > 0.2) {
-        const released = interaction.module;
-        scene.updateMatrixWorld(true);
-        released.getWorldPosition(moduleWorld);
-        const acceptedAtRelease =
-          scannerVolume.containsPoint(moduleWorld) && moduleWorld.distanceTo(scannerCenter) < 0.52;
-        scene.attach(released);
-        released.userData.grabbed = false;
-        if (acceptedAtRelease) {
-          released.userData.scanned = true;
-          released.position.copy(acceptedModuleTarget);
-          released.rotation.set(0, 0, 0);
-          released.userData.panel.userData.revealed = true;
-          activePanel = released.userData.panel;
-          panels.forEach((panel) => {
-            panel.userData.active = panel === activePanel;
-          });
-        } else {
-          released.position.copy(released.userData.home);
-          released.rotation.set(0, 0, 0);
+        if (interaction.elapsed > 0.35 && moduleWorld.distanceTo(scannerCenter) < 0.52) {
+          scene.attach(carried);
+          carried.position.copy(acceptedModuleTarget);
+          carried.rotation.set(0, 0, 0);
+          transitionTo("scanning");
         }
-        interaction.state = "idle";
-        interaction.module = null;
-        interaction.elapsed = 0;
+      } else if (interaction.state === "scanning" && interaction.elapsed >= 1.5) {
+        carried.userData.grabbed = false;
+        carried.userData.scanned = true;
+        carried.userData.panel.userData.revealed = true;
+        activePanel = carried.userData.panel;
+        panels.forEach((panel) => {
+          panel.userData.active = panel === activePanel;
+        });
+        transitionTo("scanned");
+        onScanComplete(carried.userData.artifact);
       }
 
       const closedFingers =
-        interaction.state === "close" ||
-        interaction.state === "carry" ||
-        interaction.state === "insert" ||
-        interaction.state === "release";
+        interaction.state === "pickup" || interaction.state === "transporting";
       fingerPivots.forEach((pivot) => {
         const targetAngle = pivot.userData.side * (closedFingers ? -0.06 : 0.22);
         pivot.rotation.z += (targetAngle - pivot.rotation.z) * 0.2;
@@ -786,24 +776,29 @@ export default function RobotArmGame() {
 
       target.position.copy(tcpWorld);
       target.position.y = 0.335;
-      const scannerFeedback = scannerReady ? 0x82ffb0 : carried ? 0x7fced5 : 0x5b8790;
+      const scannerActive = interaction.state === "scanning";
+      const scannerComplete = interaction.state === "scanned";
+      const scannerFeedback = scannerComplete ? 0x82ffb0 : carried ? 0x7fced5 : 0x5b8790;
       scannerRing.material.color.setHex(scannerFeedback);
       scannerGate.material.color.setHex(scannerFeedback);
-      scannerGate.material.opacity += ((scannerReady ? 0.38 : carried ? 0.2 : 0.1) - scannerGate.material.opacity) * 0.12;
-      scannerBeam.material.opacity += ((scannerReady ? 0.3 : carried ? 0.16 : 0.06) - scannerBeam.material.opacity) * 0.08;
+      const scanPulse = scannerActive ? 0.5 + Math.sin(interaction.elapsed * 18) * 0.22 : 0;
+      scannerGate.material.opacity += ((scannerActive ? 0.38 + scanPulse * 0.2 : carried ? 0.2 : 0.1) - scannerGate.material.opacity) * 0.12;
+      scannerBeam.material.opacity += ((scannerActive ? 0.22 + scanPulse * 0.2 : carried ? 0.12 : 0.06) - scannerBeam.material.opacity) * 0.1;
+      scannerGate.position.y = scannerActive ? 0.62 + ((interaction.elapsed * 1.2) % 1) * 0.72 : 0.82;
 
-      dataModules.forEach((module, index) => {
-        if (module === interaction.module) return;
-
-        if (module.userData.scanned) {
-          scannedModuleTarget.copy(scannerCenter);
-          scannedModuleTarget.y += -0.34 + index * 0.025;
-          module.position.lerp(scannedModuleTarget, 0.08);
-          module.scale.lerp(scannedScale, 0.08);
-        } else {
-          module.position.lerp(module.userData.home, 0.04);
-          module.rotation.y += 0.002;
+      dataModules.forEach((module) => {
+        if (module === interaction.module) {
+          const highlighted = interaction.state === "targeted" || interaction.state === "pickup";
+          module.scale.lerp(highlighted ? targetScale : normalScale, 0.12);
+          module.userData.beacon.intensity += ((highlighted || scannerActive ? 1.5 : 0.22) - module.userData.beacon.intensity) * 0.14;
+          if (scannerActive) module.rotation.y += 0.035;
+          return;
         }
+
+        module.position.lerp(module.userData.home, 0.04);
+        module.scale.lerp(normalScale, 0.08);
+        module.rotation.y += 0.002;
+        module.userData.beacon.intensity += (0.22 - module.userData.beacon.intensity) * 0.1;
       });
 
       panels.forEach((panel, index) => {
@@ -853,6 +848,8 @@ export default function RobotArmGame() {
       panels.forEach((item) => { item.userData.active = item === panel; });
     };
     window.addEventListener("portfolio:open", openArtifact);
+    window.addEventListener("portfolio:reset", resetInteraction);
+    onStateChange("idle");
     animationId = requestAnimationFrame(animate);
 
     return () => {
@@ -862,6 +859,7 @@ export default function RobotArmGame() {
       mount.removeEventListener("touchmove", updateTouch);
       window.removeEventListener("resize", setSize);
       window.removeEventListener("portfolio:open", openArtifact);
+      window.removeEventListener("portfolio:reset", resetInteraction);
       environmentRenderTarget.dispose();
       pmremGenerator.dispose();
       renderer.dispose();
@@ -877,7 +875,7 @@ export default function RobotArmGame() {
       dataModules.forEach((module) => module.userData.labelTexture.dispose());
       scannerLabelTexture.dispose();
     };
-  }, []);
+  }, [onScanComplete, onStateChange]);
 
   return <div className="gameCanvas" ref={mountRef} aria-label="Interactive 3D robotics portfolio" />;
 }
