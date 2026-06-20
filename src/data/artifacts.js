@@ -7,6 +7,7 @@ export const PORTFOLIO_ARTIFACTS = [
     signalColor: "#38d5ff",
     title: "Kevin Shen",
     subtitle: "University of Waterloo | BASc Mechatronics Engineering",
+    keywords: ["SolidWorks", "AutoCAD", "Fusion 360", "Arduino / ESP32", "Python", "C++", "Java", "Git"],
     evidenceLines: [
       "Sept 2025 - expected Jun 2030",
       "Class Representative for 117 students; Student Life Director",
@@ -25,6 +26,7 @@ export const PORTFOLIO_ARTIFACTS = [
     signalColor: "#ffb23f",
     title: "Selected Builds",
     subtitle: "Embedded systems built and tested",
+    keywords: ["ESP32 / Arduino", "BLE", "Flutter", "iOS", "Arduino UNO", "DC motors", "Machining"],
     evidenceLines: [
       "Fall wearable: ESP32/Arduino, BLE, Flutter iOS app; 50+ scenarios",
       "Auto-balancing rover: 3 prototypes in 7 hours; Arduino UNO and DC motors",
@@ -43,6 +45,7 @@ export const PORTFOLIO_ARTIFACTS = [
     signalColor: "#b79cff",
     title: "Waterloo Rocketry",
     subtitle: "Propulsion & Trailer Ground Equipment | Since Sept 2025",
+    keywords: ["SolidWorks", "Machining", "Cold-flow testing", "Plumbing", "Instrumentation", "Data logging"],
     evidenceLines: [
       "Designed and machined stainless-steel BSPP-NPT adapters in SolidWorks",
       "Executed 2 cold-flow tests across plumbing, instrumentation, and data logging",
@@ -61,6 +64,7 @@ export const PORTFOLIO_ARTIFACTS = [
     signalColor: "#64e6a2",
     title: "Contact Kevin",
     subtitle: "Email and LinkedIn",
+    keywords: ["Email", "LinkedIn"],
     evidenceLines: [
       "Email: k44shen@uwaterloo.ca",
       "LinkedIn: linkedin.com/in/kevin-shen-/",
@@ -78,4 +82,3 @@ export const RECRUITER_CHECKLIST = [
   "Add verified repository or demo links for the selected builds",
   "Add measured fall-detection accuracy and false-positive rate",
 ];
-

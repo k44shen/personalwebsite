@@ -41,7 +41,7 @@ function artifactCopy(artifact, index) {
   };
 }
 
-export default function RobotArmGame({ onScanComplete, onStateChange }) {
+export default function RobotArmGame({ onScanComplete, onScanProgress, onStateChange }) {
   const mountRef = useRef(null);
 
   useEffect(() => {
@@ -568,14 +568,45 @@ export default function RobotArmGame({ onScanComplete, onStateChange }) {
     const normalScale = new THREE.Vector3(1, 1, 1);
     const targetScale = new THREE.Vector3(1.07, 1.07, 1.07);
     const approachOffset = new THREE.Vector3(0, 0.18, 0);
+    const safeHeightOffset = 0.9;
+    const scanDuration = 0.9;
     const upperLength = 2.76;
     const lowerLength = 2.18;
     const toolLength = 1.42;
     const toolDepth = 0.34;
     const shoulderCenter = new THREE.Vector3(0, 0.84, 0);
     const reachSphere = new THREE.Sphere(shoulderCenter, 4.2);
-    const interaction = { state: "idle", module: null, elapsed: 0 };
+    const motionSpeedParam = Number(new URLSearchParams(window.location.search).get("motionSpeed"));
+    const motionSpeed = clamp(Number.isFinite(motionSpeedParam) && motionSpeedParam > 0 ? motionSpeedParam : 1, 0.1, 2);
+    const interaction = {
+      state: "idle",
+      module: null,
+      elapsed: 0,
+      attached: false,
+      resetRequested: false,
+      pickGrip: new THREE.Vector3(),
+      pickAbove: new THREE.Vector3(),
+      scannerAbove: new THREE.Vector3(),
+      placeTcp: new THREE.Vector3(),
+      homeAbove: new THREE.Vector3(),
+      homePlaceTcp: new THREE.Vector3(),
+    };
+    const motion = {
+      active: false,
+      elapsed: 0,
+      duration: 1,
+      from: new THREE.Vector3(),
+      to: new THREE.Vector3(),
+    };
+    const armSolution = { base: 0, upper: 0, forearm: 0, wrist: 0 };
+    const jointVelocity = { base: 0, upper: 0, forearm: 0, wrist: 0 };
+    const closedFingerStates = new Set([
+      "gripPause", "liftPick", "rotateToScanner", "transportToScanner", "descendPlace",
+      "returnGrip", "returnLift", "returnRotate", "returnTransport", "returnDescendHome",
+    ]);
     let activePanel = null;
+    let fingerClosure = 0;
+    let lastReportedScanPercent = -1;
 
     let frame = 0;
     let animationId = 0;
@@ -588,26 +619,52 @@ export default function RobotArmGame({ onScanComplete, onStateChange }) {
       interaction.state = state;
       interaction.elapsed = 0;
       mount.dataset.interactionState = state;
+      if (state === "scanning") {
+        lastReportedScanPercent = 0;
+        onScanProgress(0);
+      } else if (state === "scanned") {
+        lastReportedScanPercent = 100;
+        onScanProgress(1);
+      }
       onStateChange(state);
     };
 
+    const rotatedWaypoint = (from, toward, height = from.y) => {
+      const radius = Math.max(Math.hypot(from.x, from.z), 1.8);
+      const yaw = Math.atan2(toward.x, toward.z);
+      return new THREE.Vector3(Math.sin(yaw) * radius, height, Math.cos(yaw) * radius);
+    };
+
+    const startMotion = (state, targetPosition, duration) => {
+      scene.updateMatrixWorld(true);
+      gripSocket.getWorldPosition(tcpWorld);
+      motion.from.copy(tcpWorld);
+      motion.to.copy(targetPosition);
+      motion.elapsed = 0;
+      motion.duration = duration;
+      motion.active = true;
+      transitionTo(state);
+    };
+
     const resetInteraction = () => {
-      if (interaction.module?.parent !== scene) scene.attach(interaction.module);
-      dataModules.forEach((module) => {
-        module.userData.grabbed = false;
-        module.userData.scanned = false;
-        module.position.copy(module.userData.home);
-        module.rotation.set(0, 0, 0);
-        module.scale.copy(normalScale);
-        module.userData.beacon.intensity = 0.22;
-      });
+      if (interaction.state === "scanned" && interaction.module) {
+        interaction.resetRequested = false;
+        startMotion(
+          "returnApproach",
+          interaction.placeTcp.clone().add(new THREE.Vector3(0, safeHeightOffset, 0)),
+          0.3,
+        );
+        return;
+      }
+      if (interaction.state !== "idle") {
+        interaction.resetRequested = true;
+        return;
+      }
       panels.forEach((panel) => {
         panel.userData.active = false;
         panel.userData.revealed = false;
       });
       activePanel = null;
-      interaction.module = null;
-      transitionTo("idle");
     };
 
     const setSize = () => {
@@ -679,12 +736,24 @@ export default function RobotArmGame({ onScanComplete, onStateChange }) {
         mount.setPointerCapture?.(event.pointerId);
         interaction.module = picked;
         picked.userData.grabbed = true;
+        picked.userData.scanned = false;
+        scene.updateMatrixWorld(true);
         picked.getWorldPosition(moduleWorld);
-        transitionTo("targeted");
+        gripSocket.getWorldPosition(tcpWorld);
+        interaction.pickGrip.copy(moduleWorld).add(approachOffset);
+        interaction.pickAbove.copy(interaction.pickGrip).add(new THREE.Vector3(0, safeHeightOffset, 0));
+        const rotateTarget = rotatedWaypoint(
+          tcpWorld,
+          interaction.pickGrip,
+          Math.max(tcpWorld.y, interaction.pickAbove.y),
+        );
+        interaction.attached = false;
+        interaction.resetRequested = false;
+        startMotion("rotateToPick", rotateTarget, 0.2);
       }
     };
 
-    const solveArm = (tcpTarget) => {
+    const calculateArmSolution = (tcpTarget) => {
       const baseHeight = 0.84;
       const tcpRadius = Math.hypot(tcpTarget.x, tcpTarget.z);
       const yaw = tcpRadius > 0.04 ? Math.atan2(tcpTarget.x, tcpTarget.z) : base.rotation.y;
@@ -704,58 +773,99 @@ export default function RobotArmGame({ onScanComplete, onStateChange }) {
       const shoulderAngle = Math.atan2(radius, vertical) - Math.acos(clamp(shoulderTerm, -1, 1));
       const elbowAngle = Math.PI - Math.acos(clamp(elbowTerm, -1, 1));
 
-      base.rotation.y = yaw;
-      upper.rotation.x = shoulderAngle;
-      forearm.rotation.x = elbowAngle;
-      wrist.rotation.x = toolPitch - shoulderAngle - elbowAngle;
-      wrist.rotation.z = 0;
+      armSolution.base = yaw;
+      armSolution.upper = shoulderAngle;
+      armSolution.forearm = elbowAngle;
+      armSolution.wrist = toolPitch - shoulderAngle - elbowAngle;
+    };
+
+    const updateJoint = (object, axis, targetAngle, velocityKey, dt, maxSpeed = 10) => {
+      const angleDelta = Math.atan2(
+        Math.sin(targetAngle - object.rotation[axis]),
+        Math.cos(targetAngle - object.rotation[axis]),
+      );
+      const acceleration = angleDelta * 320 - jointVelocity[velocityKey] * 34;
+      jointVelocity[velocityKey] = clamp(
+        jointVelocity[velocityKey] + acceleration * dt,
+        -maxSpeed,
+        maxSpeed,
+      );
+      object.rotation[axis] += jointVelocity[velocityKey] * dt;
+    };
+
+    const updateMotion = (dt) => {
+      if (!motion.active) return;
+      motion.elapsed += dt;
+      const progress = clamp(motion.elapsed / motion.duration, 0, 1);
+      const eased = progress * progress * progress * (progress * (progress * 6 - 15) + 10);
+      desired.lerpVectors(motion.from, motion.to, eased);
     };
 
     const animate = (now) => {
       const dt = Math.min((now - lastTime) / 1000, 0.04);
+      const simulationDt = dt * motionSpeed;
       lastTime = now;
       frame += 1;
-      interaction.elapsed += dt;
+      interaction.elapsed += simulationDt;
       updatePointerWorld();
+      updateMotion(simulationDt);
 
       scene.updateMatrixWorld(true);
       gripSocket.getWorldPosition(tcpWorld);
       const carried = interaction.module;
-      if (interaction.state === "targeted" || interaction.state === "pickup") {
-        carried.getWorldPosition(moduleWorld);
-        desired.copy(moduleWorld).add(approachOffset);
-      } else if (
-        interaction.state === "transporting" ||
-        interaction.state === "scanning" ||
-        interaction.state === "scanned"
-      ) {
-        desired.copy(scannerTcpTarget);
-      } else if (interaction.state === "idle") {
+      if (interaction.state === "idle" && !motion.active) {
         desired.copy(pointerWorld);
       }
-      solveArm(desired);
+      calculateArmSolution(desired);
+      updateJoint(base, "y", armSolution.base, "base", simulationDt, 9);
+      updateJoint(upper, "x", armSolution.upper, "upper", simulationDt);
+      updateJoint(forearm, "x", armSolution.forearm, "forearm", simulationDt);
+      updateJoint(wrist, "x", armSolution.wrist, "wrist", simulationDt, 11);
+      wrist.rotation.z = THREE.MathUtils.damp(wrist.rotation.z, 0, 10, simulationDt);
       scene.updateMatrixWorld(true);
       gripSocket.getWorldPosition(tcpWorld);
 
-      const contactDistance = tcpWorld.distanceTo(desired);
-      if (interaction.state === "targeted" && interaction.elapsed > 0.35) {
-        transitionTo("pickup");
-      } else if (interaction.state === "pickup" && interaction.elapsed > 0.2 && contactDistance <= 0.13) {
-        gripSocket.attach(carried);
-        carried.position.set(0, 0, 0);
-        carried.rotation.set(0, 0, 0);
-        transitionTo("transporting");
-      }
+      const motionComplete = motion.active &&
+        motion.elapsed >= motion.duration &&
+        (tcpWorld.distanceTo(motion.to) < 0.08 || motion.elapsed >= motion.duration + 0.04);
+      if (motionComplete) motion.active = false;
 
-      if (interaction.state === "transporting") {
+      if (motionComplete && interaction.state === "rotateToPick") {
+        startMotion("approachPick", interaction.pickAbove, 0.38);
+      } else if (motionComplete && interaction.state === "approachPick") {
+        startMotion("descendPick", interaction.pickGrip, 0.18);
+      } else if (motionComplete && interaction.state === "descendPick") {
+        transitionTo("gripPause");
+      } else if (interaction.state === "gripPause" && interaction.elapsed >= 0.14 && !interaction.attached) {
+        gripSocket.attach(carried);
+        interaction.attached = true;
+        startMotion("liftPick", tcpWorld.clone().add(new THREE.Vector3(0, safeHeightOffset, 0)), 0.28);
+      } else if (motionComplete && interaction.state === "liftPick") {
+        startMotion(
+          "rotateToScanner",
+          rotatedWaypoint(tcpWorld, scannerCenter, tcpWorld.y),
+          0.16,
+        );
+      } else if (motionComplete && interaction.state === "rotateToScanner") {
+        interaction.scannerAbove.copy(scannerTcpTarget).add(new THREE.Vector3(0, safeHeightOffset, 0));
+        startMotion("transportToScanner", interaction.scannerAbove, 0.4);
+      } else if (motionComplete && interaction.state === "transportToScanner") {
         carried.getWorldPosition(moduleWorld);
-        if (interaction.elapsed > 0.35 && moduleWorld.distanceTo(scannerCenter) < 0.52) {
-          scene.attach(carried);
-          carried.position.copy(acceptedModuleTarget);
-          carried.rotation.set(0, 0, 0);
-          transitionTo("scanning");
-        }
-      } else if (interaction.state === "scanning" && interaction.elapsed >= 1.5) {
+        interaction.placeTcp.copy(tcpWorld).add(acceptedModuleTarget.clone().sub(moduleWorld));
+        startMotion("descendPlace", interaction.placeTcp, 0.16);
+      } else if (motionComplete && interaction.state === "descendPlace") {
+        scene.attach(carried);
+        interaction.attached = false;
+        transitionTo("releasePause");
+      } else if (interaction.state === "releasePause" && interaction.elapsed >= 0.1) {
+        startMotion(
+          "retractFromScanner",
+          tcpWorld.clone().add(new THREE.Vector3(0, safeHeightOffset, 0)),
+          0.16,
+        );
+      } else if (motionComplete && interaction.state === "retractFromScanner") {
+        transitionTo("scanning");
+      } else if (interaction.state === "scanning" && interaction.elapsed >= scanDuration) {
         carried.userData.grabbed = false;
         carried.userData.scanned = true;
         carried.userData.panel.userData.revealed = true;
@@ -764,14 +874,61 @@ export default function RobotArmGame({ onScanComplete, onStateChange }) {
           panel.userData.active = panel === activePanel;
         });
         transitionTo("scanned");
-        onScanComplete(carried.userData.artifact);
+        if (interaction.resetRequested) resetInteraction();
+        else onScanComplete(carried.userData.artifact);
+      } else if (motionComplete && interaction.state === "returnApproach") {
+        startMotion("returnDescend", interaction.placeTcp, 0.22);
+      } else if (motionComplete && interaction.state === "returnDescend") {
+        transitionTo("returnGrip");
+      } else if (interaction.state === "returnGrip" && interaction.elapsed >= 0.14 && !interaction.attached) {
+        gripSocket.attach(carried);
+        interaction.attached = true;
+        carried.userData.scanned = false;
+        startMotion("returnLift", tcpWorld.clone().add(new THREE.Vector3(0, safeHeightOffset, 0)), 0.28);
+      } else if (motionComplete && interaction.state === "returnLift") {
+        startMotion(
+          "returnRotate",
+          rotatedWaypoint(tcpWorld, carried.userData.home, tcpWorld.y),
+          0.18,
+        );
+      } else if (motionComplete && interaction.state === "returnRotate") {
+        interaction.homeAbove.copy(carried.userData.home)
+          .add(approachOffset)
+          .add(new THREE.Vector3(0, safeHeightOffset, 0));
+        startMotion("returnTransport", interaction.homeAbove, 0.4);
+      } else if (motionComplete && interaction.state === "returnTransport") {
+        carried.getWorldPosition(moduleWorld);
+        interaction.homePlaceTcp.copy(tcpWorld).add(carried.userData.home.clone().sub(moduleWorld));
+        startMotion("returnDescendHome", interaction.homePlaceTcp, 0.18);
+      } else if (motionComplete && interaction.state === "returnDescendHome") {
+        scene.attach(carried);
+        interaction.attached = false;
+        transitionTo("returnRelease");
+      } else if (interaction.state === "returnRelease" && interaction.elapsed >= 0.1) {
+        startMotion(
+          "returnRetract",
+          tcpWorld.clone().add(new THREE.Vector3(0, safeHeightOffset, 0)),
+          0.18,
+        );
+      } else if (motionComplete && interaction.state === "returnRetract") {
+        carried.userData.grabbed = false;
+        carried.userData.scanned = false;
+        panels.forEach((panel) => {
+          panel.userData.active = false;
+          panel.userData.revealed = false;
+        });
+        activePanel = null;
+        interaction.module = null;
+        interaction.resetRequested = false;
+        transitionTo("idle");
       }
 
-      const closedFingers =
-        interaction.state === "pickup" || interaction.state === "transporting";
+      const targetClosure = closedFingerStates.has(interaction.state) ? 1 : 0;
+      fingerClosure = THREE.MathUtils.damp(fingerClosure, targetClosure, 10, simulationDt);
       fingerPivots.forEach((pivot) => {
-        const targetAngle = pivot.userData.side * (closedFingers ? -0.06 : 0.22);
-        pivot.rotation.z += (targetAngle - pivot.rotation.z) * 0.2;
+        const openAngle = pivot.userData.side * 0.22;
+        const closedAngle = pivot.userData.side * -0.06;
+        pivot.rotation.z = THREE.MathUtils.lerp(openAngle, closedAngle, fingerClosure);
       });
 
       target.position.copy(tcpWorld);
@@ -782,23 +939,35 @@ export default function RobotArmGame({ onScanComplete, onStateChange }) {
       scannerRing.material.color.setHex(scannerFeedback);
       scannerGate.material.color.setHex(scannerFeedback);
       const scanPulse = scannerActive ? 0.5 + Math.sin(interaction.elapsed * 18) * 0.22 : 0;
-      scannerGate.material.opacity += ((scannerActive ? 0.38 + scanPulse * 0.2 : carried ? 0.2 : 0.1) - scannerGate.material.opacity) * 0.12;
-      scannerBeam.material.opacity += ((scannerActive ? 0.22 + scanPulse * 0.2 : carried ? 0.12 : 0.06) - scannerBeam.material.opacity) * 0.1;
-      scannerGate.position.y = scannerActive ? 0.62 + ((interaction.elapsed * 1.2) % 1) * 0.72 : 0.82;
+      scannerGate.material.opacity = THREE.MathUtils.damp(scannerGate.material.opacity, scannerActive ? 0.38 + scanPulse * 0.2 : carried ? 0.2 : 0.1, 8, simulationDt);
+      scannerBeam.material.opacity = THREE.MathUtils.damp(scannerBeam.material.opacity, scannerActive ? 0.22 + scanPulse * 0.2 : carried ? 0.12 : 0.06, 7, simulationDt);
+      const scannerGateTargetY = scannerActive ? 0.98 + Math.sin(interaction.elapsed * Math.PI * 1.6) * 0.34 : 0.82;
+      scannerGate.position.y = THREE.MathUtils.damp(scannerGate.position.y, scannerGateTargetY, 10, simulationDt);
+      if (scannerActive) {
+        const scanPercent = Math.min(100, Math.floor((interaction.elapsed / scanDuration) * 100));
+        if (scanPercent !== lastReportedScanPercent) {
+          lastReportedScanPercent = scanPercent;
+          onScanProgress(scanPercent / 100);
+        }
+      }
 
       dataModules.forEach((module) => {
         if (module === interaction.module) {
-          const highlighted = interaction.state === "targeted" || interaction.state === "pickup";
-          module.scale.lerp(highlighted ? targetScale : normalScale, 0.12);
-          module.userData.beacon.intensity += ((highlighted || scannerActive ? 1.5 : 0.22) - module.userData.beacon.intensity) * 0.14;
-          if (scannerActive) module.rotation.y += 0.035;
+          const highlighted = ["rotateToPick", "approachPick", "descendPick", "gripPause"].includes(interaction.state);
+          const scaleAlpha = 1 - Math.exp(-9 * simulationDt);
+          module.scale.lerp(highlighted ? targetScale : normalScale, scaleAlpha);
+          module.userData.beacon.intensity = THREE.MathUtils.damp(
+            module.userData.beacon.intensity,
+            highlighted || scannerActive ? 1.5 : 0.22,
+            9,
+            simulationDt,
+          );
           return;
         }
 
-        module.position.lerp(module.userData.home, 0.04);
-        module.scale.lerp(normalScale, 0.08);
-        module.rotation.y += 0.002;
-        module.userData.beacon.intensity += (0.22 - module.userData.beacon.intensity) * 0.1;
+        module.scale.lerp(normalScale, 1 - Math.exp(-7 * simulationDt));
+        module.rotation.y += 0.12 * simulationDt;
+        module.userData.beacon.intensity = THREE.MathUtils.damp(module.userData.beacon.intensity, 0.22, 7, simulationDt);
       });
 
       panels.forEach((panel, index) => {
@@ -875,7 +1044,7 @@ export default function RobotArmGame({ onScanComplete, onStateChange }) {
       dataModules.forEach((module) => module.userData.labelTexture.dispose());
       scannerLabelTexture.dispose();
     };
-  }, [onScanComplete, onStateChange]);
+  }, [onScanComplete, onScanProgress, onStateChange]);
 
   return <div className="gameCanvas" ref={mountRef} aria-label="Interactive 3D robotics portfolio" />;
 }
