@@ -10,6 +10,7 @@ export default function App() {
   const [activeArtifact, setActiveArtifact] = useState(null);
   const [interactionState, setInteractionState] = useState("idle");
   const [scanProgress, setScanProgress] = useState(0);
+  const [controlMode, setControlMode] = useState("auto");
   const [showLegend, setShowLegend] = useState(() => localStorage.getItem("portfolio-controls-seen") !== "1");
 
   const resetWorkcell = useCallback(() => {
@@ -51,11 +52,17 @@ export default function App() {
   return (
     <main className="gameShell" onPointerDownCapture={dismissLegend}>
       <RobotArmGame
+        controlMode={controlMode}
         onScanComplete={handleScanComplete}
         onScanProgress={setScanProgress}
         onStateChange={setInteractionState}
       />
-      <HudNav onOpenArtifact={openArtifact} onOpenIndex={openIndex} />
+      <HudNav
+        controlMode={controlMode}
+        onControlModeChange={setControlMode}
+        onOpenArtifact={openArtifact}
+        onOpenIndex={openIndex}
+      />
       <ArtifactPanel
         artifact={activeArtifact}
         isOpen={indexOpen || Boolean(activeArtifact)}
@@ -64,7 +71,7 @@ export default function App() {
       />
       <WorkcellStatus interactionState={interactionState} scanProgress={scanProgress} />
       {showLegend && <div className="controlLegend">CLICK AN ARTIFACT <span /> ROBOT PICKS UP <span /> SCAN OPENS DETAILS</div>}
-      <div className="sceneCaption"><span>ROBOTICS WORKCELL 01</span><strong>{interactionState === "idle" ? "SELECT AN ARTIFACT" : "AUTOMATED PICK + SCAN"}</strong></div>
+      <div className="sceneCaption"><span>ROBOTICS WORKCELL 01</span><strong>{controlMode === "manual" ? "CURSOR TARGETING ACTIVE" : interactionState === "idle" ? "SELECT AN ARTIFACT" : "AUTOMATED PICK + SCAN"}</strong></div>
     </main>
   );
 }

@@ -41,8 +41,9 @@ function artifactCopy(artifact, index) {
   };
 }
 
-export default function RobotArmGame({ onScanComplete, onScanProgress, onStateChange }) {
+export default function RobotArmGame({ controlMode = "auto", onScanComplete, onScanProgress, onStateChange }) {
   const mountRef = useRef(null);
+  const debugRef = useRef(null);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -508,6 +509,27 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
     target.rotation.x = -Math.PI / 2;
     scene.add(target);
 
+    const reachableMarker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.075, 18, 12),
+      new THREE.MeshBasicMaterial({ color: 0x38d5ff, depthTest: false }),
+    );
+    const actualMarker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.055, 18, 12),
+      new THREE.MeshBasicMaterial({ color: 0x64e6a2, depthTest: false }),
+    );
+    const clampLineGeometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+    ]);
+    const clampLine = new THREE.Line(
+      clampLineGeometry,
+      new THREE.LineBasicMaterial({ color: 0xff6b4a, depthTest: false }),
+    );
+    reachableMarker.renderOrder = 20;
+    actualMarker.renderOrder = 21;
+    clampLine.renderOrder = 19;
+    scene.add(reachableMarker, actualMarker, clampLine);
+
     const artifacts = PORTFOLIO_ARTIFACTS.slice(0, 4);
     const panelPositions = [
       new THREE.Vector3(-3.4, 3.15, -2.3),
@@ -559,6 +581,13 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
     const dragPlaneNormal = new THREE.Vector3();
     const dragHit = new THREE.Vector3();
     const sphereHit = new THREE.Vector3();
+    const workSurfacePlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.32);
+    const requestedSurface = new THREE.Vector3(0.9, 0.325, 0.8);
+    const requestedTcp = new THREE.Vector3(0.9, 1.55, 0.8);
+    const smoothedTcp = requestedTcp.clone();
+    const reachableTcp = requestedTcp.clone();
+    const verifiedTcp = new THREE.Vector3();
+    const manualActualTcp = new THREE.Vector3();
     const screenProbe = new THREE.Vector3();
     const tcpWorld = new THREE.Vector3();
     const moduleWorld = new THREE.Vector3();
@@ -576,6 +605,16 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
     const toolDepth = 0.34;
     const shoulderCenter = new THREE.Vector3(0, 0.84, 0);
     const reachSphere = new THREE.Sphere(shoulderCenter, 4.2);
+    const debugIK = new URLSearchParams(window.location.search).get("debugIK") === "1";
+    const manualHoverHeight = 1.55;
+    const workBounds = { minX: -4.6, maxX: 4.6, minZ: -1.7, maxZ: 4.5 };
+    // These signs and ranges include every existing automatic pose plus near/far test poses.
+    const jointLimits = {
+      base: [-THREE.MathUtils.degToRad(170), THREE.MathUtils.degToRad(170)],
+      upper: [THREE.MathUtils.degToRad(-55), THREE.MathUtils.degToRad(80)],
+      forearm: [THREE.MathUtils.degToRad(8), THREE.MathUtils.degToRad(145)],
+      wrist: [THREE.MathUtils.degToRad(45), THREE.MathUtils.degToRad(115)],
+    };
     const motionSpeedParam = Number(new URLSearchParams(window.location.search).get("motionSpeed"));
     const motionSpeed = clamp(Number.isFinite(motionSpeedParam) && motionSpeedParam > 0 ? motionSpeedParam : 1, 0.1, 2);
     const interaction = {
@@ -599,6 +638,7 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
       to: new THREE.Vector3(),
     };
     const armSolution = { base: 0, upper: 0, forearm: 0, wrist: 0 };
+    const manualSolution = { base: 0, upper: 0, forearm: 0, wrist: 0 };
     const jointVelocity = { base: 0, upper: 0, forearm: 0, wrist: 0 };
     const closedFingerStates = new Set([
       "gripPause", "liftPick", "rotateToScanner", "transportToScanner", "descendPlace",
@@ -607,6 +647,10 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
     let activePanel = null;
     let fingerClosure = 0;
     let lastReportedScanPercent = -1;
+    let manualTargetClamped = false;
+    let manualTcpError = 0;
+    let manualSolverResidual = 0;
+    let manualBaseTarget = 0;
 
     let frame = 0;
     let animationId = 0;
@@ -694,6 +738,19 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
       }
     };
 
+    const updateManualPointerTarget = () => {
+      raycaster.setFromCamera(pointer, camera);
+      if (!raycaster.ray.intersectPlane(workSurfacePlane, dragHit)) return;
+      requestedSurface.set(dragHit.x, 0.325, dragHit.z);
+      requestedTcp.set(dragHit.x, manualHoverHeight, dragHit.z);
+    };
+
+    const handlePointerMove = (event) => {
+      if (event.target !== renderer.domElement && event.target !== mount) return;
+      updatePointer(event);
+      if (controlMode === "manual") updateManualPointerTarget();
+    };
+
     const updateTouch = (event) => {
       if (event.touches[0]) updatePointer(event.touches[0]);
     };
@@ -702,6 +759,7 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
       updatePointer(event);
       raycaster.setFromCamera(pointer, camera);
 
+      if (controlMode === "manual") return;
       if (interaction.state !== "idle") return;
 
       const [identityHit] = raycaster.intersectObjects(identityActionMeshes, false);
@@ -779,11 +837,87 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
       armSolution.wrist = toolPitch - shoulderAngle - elbowAngle;
     };
 
-    const updateJoint = (object, axis, targetAngle, velocityKey, dt, maxSpeed = 10) => {
-      const angleDelta = Math.atan2(
-        Math.sin(targetAngle - object.rotation[axis]),
-        Math.cos(targetAngle - object.rotation[axis]),
+    const unwrapNear = (angle, reference) =>
+      reference + Math.atan2(Math.sin(angle - reference), Math.cos(angle - reference));
+
+    const forwardKinematics = (solution, result) => {
+      const combinedElbow = solution.upper + solution.forearm;
+      const toolPitch = combinedElbow + solution.wrist;
+      const radial =
+        upperLength * Math.sin(solution.upper) +
+        lowerLength * Math.sin(combinedElbow) +
+        toolLength * Math.sin(toolPitch) +
+        toolDepth * Math.cos(toolPitch);
+      const vertical =
+        shoulderCenter.y +
+        upperLength * Math.cos(solution.upper) +
+        lowerLength * Math.cos(combinedElbow) +
+        toolLength * Math.cos(toolPitch) -
+        toolDepth * Math.sin(toolPitch);
+      result.set(
+        Math.sin(solution.base) * radial,
+        vertical,
+        Math.cos(solution.base) * radial,
       );
+      return result;
+    };
+
+    const calculateManualArmSolution = (tcpTarget) => {
+      const boundedX = clamp(tcpTarget.x, workBounds.minX, workBounds.maxX);
+      const boundedZ = clamp(tcpTarget.z, workBounds.minZ, workBounds.maxZ);
+      const tcpRadius = Math.hypot(boundedX, boundedZ);
+      if (tcpRadius >= 0.18) {
+        const nearestYaw = unwrapNear(Math.atan2(boundedX, boundedZ), base.rotation.y);
+        const validYawCandidates = [nearestYaw, nearestYaw - Math.PI * 2, nearestYaw + Math.PI * 2]
+          .filter((angle) => angle >= jointLimits.base[0] && angle <= jointLimits.base[1]);
+        manualBaseTarget = validYawCandidates.length
+          ? validYawCandidates.reduce((best, angle) =>
+            Math.abs(angle - base.rotation.y) < Math.abs(best - base.rotation.y) ? angle : best)
+          : nearestYaw;
+      }
+
+      const targetBase = clamp(manualBaseTarget, ...jointLimits.base);
+      const wristBlend = THREE.MathUtils.smoothstep(tcpRadius, 0.15, 1.1);
+      const toolPitch = THREE.MathUtils.lerp(Math.PI, 2.55, wristBlend);
+      const radialToolOffset = Math.sin(toolPitch) * toolLength + Math.cos(toolPitch) * toolDepth;
+      const verticalToolOffset = Math.cos(toolPitch) * toolLength - Math.sin(toolPitch) * toolDepth;
+      const radial = tcpRadius - radialToolOffset;
+      const vertical = tcpTarget.y - verticalToolOffset - shoulderCenter.y;
+      const minReach = Math.abs(upperLength - lowerLength) + 0.05;
+      const maxReach = upperLength + lowerLength - 0.05;
+      const reach = clamp(Math.hypot(radial, vertical), minReach, maxReach);
+      const shoulderTerm =
+        (upperLength * upperLength + reach * reach - lowerLength * lowerLength) /
+        (2 * upperLength * reach);
+      const elbowTerm =
+        (upperLength * upperLength + lowerLength * lowerLength - reach * reach) /
+        (2 * upperLength * lowerLength);
+      const shoulderAngle = Math.atan2(radial, vertical) - Math.acos(clamp(shoulderTerm, -1, 1));
+      const elbowAngle = Math.PI - Math.acos(clamp(elbowTerm, -1, 1));
+
+      manualSolution.base = targetBase;
+      manualSolution.upper = clamp(shoulderAngle, ...jointLimits.upper);
+      manualSolution.forearm = clamp(elbowAngle, ...jointLimits.forearm);
+      manualSolution.wrist = clamp(
+        toolPitch - manualSolution.upper - manualSolution.forearm,
+        ...jointLimits.wrist,
+      );
+      forwardKinematics(manualSolution, reachableTcp);
+      verifiedTcp.copy(reachableTcp);
+      manualSolverResidual = verifiedTcp.distanceTo(tcpTarget);
+      manualTargetClamped =
+        Math.abs(boundedX - tcpTarget.x) > 0.001 ||
+        Math.abs(boundedZ - tcpTarget.z) > 0.001 ||
+        manualSolverResidual > 0.025;
+    };
+
+    const updateJoint = (object, axis, targetAngle, velocityKey, dt, maxSpeed = 10, limits = null) => {
+      const angleDelta = limits
+        ? targetAngle - object.rotation[axis]
+        : Math.atan2(
+          Math.sin(targetAngle - object.rotation[axis]),
+          Math.cos(targetAngle - object.rotation[axis]),
+        );
       const acceleration = angleDelta * 320 - jointVelocity[velocityKey] * 34;
       jointVelocity[velocityKey] = clamp(
         jointVelocity[velocityKey] + acceleration * dt,
@@ -791,6 +925,11 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
         maxSpeed,
       );
       object.rotation[axis] += jointVelocity[velocityKey] * dt;
+      if (limits) {
+        const limitedAngle = clamp(object.rotation[axis], ...limits);
+        if (limitedAngle !== object.rotation[axis]) jointVelocity[velocityKey] = 0;
+        object.rotation[axis] = limitedAngle;
+      }
     };
 
     const updateMotion = (dt) => {
@@ -807,23 +946,38 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
       lastTime = now;
       frame += 1;
       interaction.elapsed += simulationDt;
-      updatePointerWorld();
-      updateMotion(simulationDt);
+      if (controlMode === "auto") {
+        updatePointerWorld();
+        updateMotion(simulationDt);
+      }
 
       scene.updateMatrixWorld(true);
       gripSocket.getWorldPosition(tcpWorld);
       const carried = interaction.module;
-      if (interaction.state === "idle" && !motion.active) {
-        desired.copy(pointerWorld);
+      if (controlMode === "manual") {
+        smoothedTcp.x = THREE.MathUtils.damp(smoothedTcp.x, requestedTcp.x, 14, simulationDt);
+        smoothedTcp.y = THREE.MathUtils.damp(smoothedTcp.y, requestedTcp.y, 14, simulationDt);
+        smoothedTcp.z = THREE.MathUtils.damp(smoothedTcp.z, requestedTcp.z, 14, simulationDt);
+        calculateManualArmSolution(smoothedTcp);
+        updateJoint(base, "y", manualSolution.base, "base", simulationDt, 4, jointLimits.base);
+        updateJoint(upper, "x", manualSolution.upper, "upper", simulationDt, 6, jointLimits.upper);
+        updateJoint(forearm, "x", manualSolution.forearm, "forearm", simulationDt, 6, jointLimits.forearm);
+        updateJoint(wrist, "x", manualSolution.wrist, "wrist", simulationDt, 7, jointLimits.wrist);
+      } else {
+        if (interaction.state === "idle" && !motion.active) desired.copy(pointerWorld);
+        calculateArmSolution(desired);
+        updateJoint(base, "y", armSolution.base, "base", simulationDt, 9);
+        updateJoint(upper, "x", armSolution.upper, "upper", simulationDt);
+        updateJoint(forearm, "x", armSolution.forearm, "forearm", simulationDt);
+        updateJoint(wrist, "x", armSolution.wrist, "wrist", simulationDt, 11);
       }
-      calculateArmSolution(desired);
-      updateJoint(base, "y", armSolution.base, "base", simulationDt, 9);
-      updateJoint(upper, "x", armSolution.upper, "upper", simulationDt);
-      updateJoint(forearm, "x", armSolution.forearm, "forearm", simulationDt);
-      updateJoint(wrist, "x", armSolution.wrist, "wrist", simulationDt, 11);
       wrist.rotation.z = THREE.MathUtils.damp(wrist.rotation.z, 0, 10, simulationDt);
       scene.updateMatrixWorld(true);
       gripSocket.getWorldPosition(tcpWorld);
+      if (controlMode === "manual") {
+        manualActualTcp.copy(tcpWorld);
+        manualTcpError = manualActualTcp.distanceTo(reachableTcp);
+      }
 
       const motionComplete = motion.active &&
         motion.elapsed >= motion.duration &&
@@ -931,8 +1085,28 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
         pivot.rotation.z = THREE.MathUtils.lerp(openAngle, closedAngle, fingerClosure);
       });
 
-      target.position.copy(tcpWorld);
-      target.position.y = 0.335;
+      if (controlMode === "manual") {
+        target.position.copy(requestedSurface);
+        target.material.color.setHex(manualTargetClamped ? 0xff6b4a : 0xffb02e);
+        target.material.emissive.setHex(manualTargetClamped ? 0x7a1608 : 0xff7a00);
+        reachableMarker.position.copy(reachableTcp);
+        actualMarker.position.copy(manualActualTcp);
+        reachableMarker.visible = true;
+        actualMarker.visible = debugIK;
+        clampLine.visible = manualTargetClamped;
+        const positions = clampLine.geometry.attributes.position;
+        positions.setXYZ(0, smoothedTcp.x, smoothedTcp.y, smoothedTcp.z);
+        positions.setXYZ(1, reachableTcp.x, reachableTcp.y, reachableTcp.z);
+        positions.needsUpdate = true;
+      } else {
+        target.position.copy(tcpWorld);
+        target.position.y = 0.335;
+        target.material.color.setHex(0xffb02e);
+        target.material.emissive.setHex(0xff7a00);
+        reachableMarker.visible = false;
+        actualMarker.visible = false;
+        clampLine.visible = false;
+      }
       const scannerActive = interaction.state === "scanning";
       const scannerComplete = interaction.state === "scanned";
       const scannerFeedback = scannerComplete ? 0x82ffb0 : carried ? 0x7fced5 : 0x5b8790;
@@ -966,7 +1140,7 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
         }
 
         module.scale.lerp(normalScale, 1 - Math.exp(-7 * simulationDt));
-        module.rotation.y += 0.12 * simulationDt;
+        if (controlMode === "auto") module.rotation.y += 0.12 * simulationDt;
         module.userData.beacon.intensity = THREE.MathUtils.damp(module.userData.beacon.intensity, 0.22, 7, simulationDt);
       });
 
@@ -996,6 +1170,33 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
         mount.dataset.tcpWorld = tcpWorld.toArray().map((value) => value.toFixed(3)).join(",");
         mount.dataset.interactionState = interaction.state;
         mount.dataset.scannedCount = String(dataModules.filter((module) => module.userData.scanned).length);
+        if (controlMode === "manual") {
+          const formatVector = (vector) => vector.toArray().map((value) => value.toFixed(3)).join(",");
+          mount.dataset.manualRequested = formatVector(requestedTcp);
+          mount.dataset.manualReachable = formatVector(reachableTcp);
+          mount.dataset.manualActual = formatVector(manualActualTcp);
+          mount.dataset.manualError = manualTcpError.toFixed(4);
+          mount.dataset.manualResidual = manualSolverResidual.toFixed(4);
+          mount.dataset.manualClamped = String(manualTargetClamped);
+          mount.dataset.manualAngles = Object.values(manualSolution)
+            .map((value) => THREE.MathUtils.radToDeg(value).toFixed(1))
+            .join(",");
+          mount.dataset.manualJointActual = [base.rotation.y, upper.rotation.x, forearm.rotation.x, wrist.rotation.x]
+            .map((value) => THREE.MathUtils.radToDeg(value).toFixed(1))
+            .join(",");
+          if (debugRef.current) {
+            debugRef.current.textContent = [
+              "IK DEBUG / MANUAL",
+              `REQUESTED  ${formatVector(requestedTcp)}`,
+              `REACHABLE  ${formatVector(reachableTcp)}`,
+              `ACTUAL     ${formatVector(manualActualTcp)}`,
+              `TCP ERROR  ${manualTcpError.toFixed(4)} / LIMIT 0.0500`,
+              `CLAMP DELTA ${manualSolverResidual.toFixed(4)} / ${manualTargetClamped ? "CLAMPED" : "IN RANGE"}`,
+              `JOINT CMD  ${mount.dataset.manualAngles}`,
+              `JOINT ACT  ${mount.dataset.manualJointActual}`,
+            ].join("\n");
+          }
+        }
       }
 
       camera.lookAt(0, 1.42, 1.1);
@@ -1005,7 +1206,7 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
     };
 
     setSize();
-    mount.addEventListener("pointermove", updatePointer);
+    mount.addEventListener("pointermove", handlePointerMove);
     mount.addEventListener("pointerdown", beginInteraction);
     mount.addEventListener("touchmove", updateTouch, { passive: true });
     window.addEventListener("resize", setSize);
@@ -1023,7 +1224,7 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
 
     return () => {
       cancelAnimationFrame(animationId);
-      mount.removeEventListener("pointermove", updatePointer);
+      mount.removeEventListener("pointermove", handlePointerMove);
       mount.removeEventListener("pointerdown", beginInteraction);
       mount.removeEventListener("touchmove", updateTouch);
       window.removeEventListener("resize", setSize);
@@ -1044,7 +1245,14 @@ export default function RobotArmGame({ onScanComplete, onScanProgress, onStateCh
       dataModules.forEach((module) => module.userData.labelTexture.dispose());
       scannerLabelTexture.dispose();
     };
-  }, [onScanComplete, onScanProgress, onStateChange]);
+  }, [controlMode, onScanComplete, onScanProgress, onStateChange]);
 
-  return <div className="gameCanvas" ref={mountRef} aria-label="Interactive 3D robotics portfolio" />;
+  const debugIK = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debugIK") === "1";
+
+  return (
+    <>
+      <div className="gameCanvas" ref={mountRef} aria-label="Interactive 3D robotics portfolio" />
+      {debugIK && <output className="ikDebug" ref={debugRef} aria-live="polite">IK DEBUG / WAITING</output>}
+    </>
+  );
 }
