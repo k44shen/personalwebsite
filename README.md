@@ -1,28 +1,21 @@
-# Kevin Shen Portfolio
+# Kevin Shen — Portfolio
 
-Robotics-themed personal portfolio for projects, resume, experience, and contact information.
+React and Vite portfolio with project photos, LinkedIn experience, and a Tron Ring widget.
 
-## Local Development
+## Development
 
-```bash
-npm install
+```sh
+npm ci
 npm run dev
 ```
 
-## Build
+## Deployment
 
-```bash
-npm run build
-```
+GitHub Actions builds and deploys main to GitHub Pages:
+https://k44shen.github.io/personalwebsite/
 
-## GitHub Pages
+Asset URLs use Vite's relative base so they work under the repository path.
 
-This project is ready to deploy with GitHub Pages using GitHub Actions.
+The previous CNAME was kevinshen.com. It was removed from the deployment because DNS did not point to GitHub Pages when checked on October 23, 2026. To use a custom domain later, configure its DNS and Pages settings before restoring CNAME.
 
-1. Create a GitHub repository.
-2. Push this project to the repository.
-3. In GitHub, open `Settings > Pages`.
-4. Set the source to `GitHub Actions`.
-5. Push to `main`; the workflow will publish the `dist` folder.
-
-For a custom domain, add the domain in `Settings > Pages`, then update your DNS provider with GitHub Pages records.
+The Tron Ring entry is submitted separately to sym7534/tron-webring; membership requires maintainer approval.
