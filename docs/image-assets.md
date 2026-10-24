@@ -13,3 +13,9 @@ Shared prompt: Remove only the entire background and unrelated objects or softwa
 | pcb-photo.webp | public/assets/projects/pcb-cutout.png | Isolate the illuminated PCB and white USB connector; remove tabletop and long trailing cable. |
 
 All five outputs were visually inspected and verified to have RGBA alpha spanning 0 to 255.
+
+## Go-kart website render v3
+
+The go-kart card now uses `public/assets/projects/kart-render-v3.png`, rendered from a reconstructed CAD reference with CadQuery and VTK. The original SolidWorks screenshot and previous cutout are retained. This version follows the later tapered Chassis Frame v2 drawing and uses the build and steering-component photos for visual details. Small mounting interfaces and unmeasured component positions are approximate; the rear axle is a CAD layout, not a claim of installed hardware.
+
+The local reconstruction and rendering scripts are in `cad/go-kart-v3/`.

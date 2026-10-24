@@ -1,0 +1,24 @@
+{
+  "frame_length": 1498.6,
+  "front_width": 508.0,
+  "rear_width": 685.8,
+  "taper_start": 393.7,
+  "taper_end": 736.5999999999999,
+  "tube": 50.8,
+  "wall_visual": 2.5,
+  "steering_wheel_diameter": 300,
+  "shaft_lengths": [
+    130.17499999999998,
+    304.79999999999995,
+    184.14999999999998
+  ],
+  "axle_length": 740,
+  "spindle_shaft_diameter": 15,
+  "kingpin_spacing_visual": 590,
+  "rack_x_visual": 130,
+  "rack_z_visual": 92,
+  "front_tire_diameter_visual": 250,
+  "front_tire_width_visual": 72,
+  "rear_axle_x_visual": 1400,
+  "rear_axle_z_visual": 78
+}

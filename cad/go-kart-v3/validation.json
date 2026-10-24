@@ -1,0 +1,11 @@
+{
+  "parts": 150,
+  "all_shapes_valid": true,
+  "frame_bounds_mm": [
+    1498.6032994574502,
+    685.8034156748017,
+    50.80922391785967
+  ],
+  "frame_basis": "Chassis Frame v2 drawing: 59 x 20/27 inches",
+  "assembly_status": "Reference envelopes. Unmeasured mounting interfaces are provisional. No fabrication release."
+}
