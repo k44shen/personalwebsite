@@ -4,6 +4,7 @@ export const projects = [
   { slug: 'oxidizer-tank-tower', name: 'Oxidizer Tank Tower', image: 'tower-cutout.png', alt: 'CAD concept of a trailer-mounted oxidizer tank tower', description: 'Developed a preliminary trailer-mounted oxidizer tank support tower concept with Waterloo Rocketry.', status: 'CAD concept.' },
   { slug: 'iron-man-helmet', name: 'Iron Man Helmet', image: 'helmet-cutout.png', alt: 'Red and yellow 3D-printed Iron Man helmet prototype', description: 'Co-developed a full-scale Iron Man helmet prototype with WATbotics, contributing to internal packaging, 3D printing, and assembly.' },
   { slug: 'heart-led-pcb', name: 'Heart LED PCB', image: 'pcb-cutout.png', alt: 'Assembled heart-shaped circuit board with illuminated red LEDs', description: 'Designed and assembled a 12-LED heart-shaped PCB in KiCad with USB-C power, an ATtiny85, and MOSFET-switched LEDs.' },
+  { slug: 'auto-shooting-turret', name: 'Auto Shooting Turret', image: 'turret-photo-cutout.png', alt: 'Photograph of a black 3D-printed pan-tilt turret with a webcam, water nozzle, and rotating base', description: 'A camera-equipped water turret prototype with a custom 3D-printed pan-tilt mechanism, servo-driven axes, and an integrated nozzle mount.', status: 'Prototype in development.' },
 ];
 
 export const experience = [

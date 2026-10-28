@@ -44,7 +44,7 @@ function Greeting({ reduced }) {
 }
 
 function Home({ reduced, paused, setPaused }) {
-  const [order, setOrder] = useState([0, 1, 3]);
+  const [order, setOrder] = useState([5, 0, 1, 3]);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   useEffect(() => {

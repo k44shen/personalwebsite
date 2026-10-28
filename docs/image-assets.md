@@ -32,3 +32,9 @@ Project cards and detail pages prefer background-removed photographs of the phys
 Built-in ImageGen was used for background extraction, requesting genuine alpha transparency and unchanged photographed hardware, with no replacement backdrop, text, ground plane, reinterpretation, or added objects.
 
 Follow-up go-kart cleanup prompt: remove only the thin diagonal chair-back tube at the upper-right edge behind the steering wheel; retain the photographed kart, existing crop, textures, geometry, lighting, and alpha transparency.
+
+## Auto Shooting Turret — October 28, 2026
+
+Source: `/Users/kevinshen/Downloads/IMG_2397.JPG` (user-supplied real build photo).
+Output: `public/assets/projects/turret-photo-cutout.png`.
+Built-in ImageGen mode; background-extraction edit. Prompt: isolate the complete photographed turret, preserving frame, axle, webcam, nozzle, rotating base, feet, printed textures and perspective; remove room, desk, reflections and unrelated objects; make frame openings transparent; retain short attached wires/tubing; modestly improve exposure; add no hardware, backdrop, haze or shadow. Visually inspected before use. This is an AI-assisted photographic cutout, not an engineering render or evidence of automatic operation.
