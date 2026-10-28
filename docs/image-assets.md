@@ -38,3 +38,7 @@ Follow-up go-kart cleanup prompt: remove only the thin diagonal chair-back tube 
 Source: `/Users/kevinshen/Downloads/IMG_2397.JPG` (user-supplied real build photo).
 Output: `public/assets/projects/turret-photo-cutout.png`.
 Built-in ImageGen mode; background-extraction edit. Prompt: isolate the complete photographed turret, preserving frame, axle, webcam, nozzle, rotating base, feet, printed textures and perspective; remove room, desk, reflections and unrelated objects; make frame openings transparent; retain short attached wires/tubing; modestly improve exposure; add no hardware, backdrop, haze or shadow. Visually inspected before use. This is an AI-assisted photographic cutout, not an engineering render or evidence of automatic operation.
+
+## Visionary supplied composite — October 28, 2026
+
+User-selected image `codex-clipboard-95231db3-5e83-4370-8a04-a207eb0a36af.png` copied unchanged to `public/assets/projects/visionary-demo-cutout.png`. Used for Projector-Guided Assembly cards and detail page. Depicts the assembly beside a marker board and projected-highlight illustration. Supersedes the earlier cropped hardware cutout; original retained.
