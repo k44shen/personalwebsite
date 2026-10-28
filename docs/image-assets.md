@@ -16,6 +16,19 @@ All five outputs were visually inspected and verified to have RGBA alpha spannin
 
 ## Go-kart website render v3
 
-The go-kart card now uses `public/assets/projects/kart-render-v3.png`, rendered from a reconstructed CAD reference with CadQuery and VTK. The original SolidWorks screenshot and previous cutout are retained. This version follows the later tapered Chassis Frame v2 drawing and uses the build and steering-component photos for visual details. Small mounting interfaces and unmeasured component positions are approximate; the rear axle is a CAD layout, not a claim of installed hardware.
+The previous go-kart card used `public/assets/projects/kart-render-v3.png`, rendered from a reconstructed CAD reference with CadQuery and VTK. The original SolidWorks screenshot and previous cutout are retained. This version follows the later tapered Chassis Frame v2 drawing and uses the build and steering-component photos for visual details. Small mounting interfaces and unmeasured component positions are approximate; the rear axle is a CAD layout, not a claim of installed hardware.
 
 The local reconstruction and rendering scripts are in `cad/go-kart-v3/`.
+
+## Real build photo preference — October 28, 2026
+
+Project cards and detail pages prefer background-removed photographs of the physical builds.
+
+- Go-kart: `kart-photo.webp` → `public/assets/projects/kart-photo-cutout.png`. Preserve the photographed chassis and attached steering hardware; remove chairs, seats, chair legs, floor, people, and shoes. Make openings between tubes transparent. Preserve source cropping and do not invent unseen tubing, wheels, axle, seat, or motor.
+- Projector assembly: `assembly-photo.webp` → `public/assets/projects/assembly-photo-cutout.png`. Preserve the actual projector, camera mechanism, brackets, servos, cylindrical base, controller, and attached local wires. Remove laptops, people, floor, bags, cardboard, and trailing cables. Preserve the projector's original crop and real textures; do not reconstruct missing parts.
+- Helmet and LED PCB: retain the existing real-photo cutouts.
+- Oxidizer tank tower: retain the existing CAD cutout because the source project is a concept, not a photographed physical tower.
+
+Built-in ImageGen was used for background extraction, requesting genuine alpha transparency and unchanged photographed hardware, with no replacement backdrop, text, ground plane, reinterpretation, or added objects.
+
+Follow-up go-kart cleanup prompt: remove only the thin diagonal chair-back tube at the upper-right edge behind the steering wheel; retain the photographed kart, existing crop, textures, geometry, lighting, and alpha transparency.
