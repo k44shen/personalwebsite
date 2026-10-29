@@ -27,19 +27,32 @@ function ExperienceCard({ item, detail = false, index = 0 }) {
   return detail ? <article className="experience-card card enter detail-experience" style={{ '--delay': `${Math.min(index, 5) * 60}ms` }}>{content}</article> : <a className="experience-card card enter" href={link('experience/')} style={{ '--delay': `${index * 80 + 100}ms` }}>{content}</a>;
 }
 
-function Greeting({ reduced }) {
+function Greeting({ reduced, paused }) {
   const name = "hey, im kevin";
   const [text, setText] = useState(reduced ? name : '');
   useEffect(() => {
     if (reduced) { setText(name); return; }
+    if (paused) return;
     let position = 0;
-    const timer = setInterval(() => {
-      position += 1;
+    let deleting = false;
+    let timer;
+    setText('');
+    const tick = () => {
+      position += deleting ? -1 : 1;
       setText(name.slice(0, position));
-      if (position === name.length) clearInterval(timer);
-    }, 85);
-    return () => clearInterval(timer);
-  }, [reduced]);
+      let delay = deleting ? 55 : 100;
+      if (position === name.length) {
+        deleting = true;
+        delay = 2600;
+      } else if (position === 0) {
+        deleting = false;
+        delay = 650;
+      }
+      timer = setTimeout(tick, delay);
+    };
+    timer = setTimeout(tick, 400);
+    return () => clearTimeout(timer);
+  }, [reduced, paused]);
   return <h1 className="greeting" aria-label={name}><span aria-hidden="true">{text}<span className="caret" /></span></h1>;
 }
 
@@ -60,7 +73,7 @@ function Home({ reduced, paused, setPaused }) {
   return <>
     <div className="home-layout">
       <div className="home-column">
-        <section className="intro enter"><Greeting reduced={reduced} /><p>i work with robots and stuff</p><p className="school-line">tron @uwaterloo <img className="waterloo-crest" src={asset('logos/uwaterloo.svg')} alt="University of Waterloo" width="28" height="32" /></p></section>
+        <section className="intro enter"><Greeting reduced={reduced} paused={paused} /><p>full stack robotics engineer</p><p className="school-line">tron @uwaterloo <img className="waterloo-crest" src={asset('logos/uwaterloo.svg')} alt="University of Waterloo" width="28" height="32" /></p></section>
         {experience.slice(0, 3).map((item, index) => <ExperienceCard key={item.title} item={item} index={index} />)}
         <ProjectCard project={projects[2]} index={2} />
         <ProjectCard project={projects[4]} index={3} />
