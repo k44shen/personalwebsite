@@ -16,10 +16,10 @@ a:focus-visible, button:focus-visible { outline: 2px solid #777; outline-offset:
 .site-shell { max-width: 1500px; margin: 0 auto; padding: 0 56px; }
 .site-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 18px 0 22px; }
 .pill-nav { display: flex; align-items: center; padding: 3px; border: 1px solid #eee; border-radius: 10px; box-shadow: 0 2px 7px #00000012; }
-.pill-nav a { padding: 9px 13px 7px; border-radius: 7px; color: #737373; font-size: 15px; transition: background .25s, color .25s; }
+.pill-nav a { padding: 9px 13px 7px; border-radius: 7px; color: #767676; font-size: 15px; transition: background .25s, color .25s; }
 .pill-nav a[aria-current='page'] { color: #1a1a1a; background: #f5f5f5; font-weight: 500; }
 .pill-nav a:hover { background: #f7f7f7; color: #1a1a1a; }
-.external-nav { display: flex; gap: 23px; font-size: 15px; color: #737373; }
+.external-nav { display: flex; gap: 23px; font-size: 15px; color: #767676; }
 .external-nav a { transition: color .25s; }
 .external-nav a:hover { color: #1a1a1a; }
 main { min-height: 65vh; }
@@ -28,7 +28,9 @@ main { min-height: 65vh; }
 .intro { padding: 0 1px 23px; }
 .greeting { min-height: 1.2em; font-size: 56px; line-height: 1.2; font-weight: 300; letter-spacing: -.02em; white-space: nowrap; }
 .caret { display: inline-block; height: .96em; border-right: 1px solid #1a1a1a; margin-left: 2px; vertical-align: -.05em; animation: blink .8s step-end 6; opacity: 0; }
-.intro p { font-size: 32px; font-weight: 300; line-height: 1.45; color: #737373; }
+.intro p { font-size: 32px; font-weight: 300; line-height: 1.45; color: #767676; }
+.school-line { display: flex; align-items: center; gap: 10px; }
+.waterloo-crest { display: block; width: .78em; height: .9em; object-fit: contain; flex-shrink: 0; }
 .card { background: #f9f9f8; border-radius: 8px; overflow: hidden; transition: transform .35s cubic-bezier(.25,.46,.45,.94), background .35s, box-shadow .35s; }
 .arrow { width: 12px; height: 12px; flex-shrink: 0; color: #bbb; transition: transform .35s, color .35s; }
 .experience-card { display: flex; align-items: center; gap: 16px; padding: 17px 20px; min-height: 90px; }
@@ -50,14 +52,14 @@ main { min-height: 65vh; }
 .projects-grid .project-image { height: 310px; padding: 14px 20px 10px; }
 .experience-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
 .detail-experience { align-items: flex-start; padding: 25px; }
-.detail-experience .experience-copy p { font-size: 16px; line-height: 1.55; color: #737373; margin-top: 14px; }
+.detail-experience .experience-copy p { font-size: 16px; line-height: 1.55; color: #767676; margin-top: 14px; }
 .project-detail { max-width: 850px; margin: 10px auto 0; }
-.back-link { display: inline-block; color: #737373; font-size: 16px; margin-bottom: 20px; }
+.back-link { display: inline-block; color: #767676; font-size: 16px; margin-bottom: 20px; }
 .project-detail .page-title { font-size: 40px; margin-top: 0; }
 .detail-image { display: flex; align-items: center; justify-content: center; padding: 30px; height: 520px; }
 .detail-image img { display: block; height: 100%; width: 100%; object-fit: contain; filter: drop-shadow(0 8px 5px #00000010); }
 .project-description { font-size: 21px; line-height: 1.6; margin-top: 28px; max-width: 700px; }
-.project-status { font-size: 16px; color: #737373; margin-top: 14px; }
+.project-status { font-size: 16px; color: #767676; margin-top: 14px; }
 .motion-toggle { display: block; margin: 20px 0 0 auto; background: none; border: 0; color: #888; font-size: 12px; padding: 5px 0; cursor: pointer; }
 footer { display: flex; align-items: center; justify-content: space-between; padding: 32px 0 25px; margin-top: 22px; color: #888; font-size: 14px; gap: 24px; }
 .webring { display: flex; gap: 12px; align-items: center; }
@@ -70,7 +72,7 @@ footer { display: flex; align-items: center; justify-content: space-between; pad
 @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
 ::view-transition-group(*) { animation-duration: .8s; animation-timing-function: cubic-bezier(.22,1,.36,1); }
 @media (hover:hover) {
-  a.card:hover { background: #f5f5f4; transform: translateY(-2px); box-shadow: 0 6px 18px #00000005; }
+  a.card:hover { background: #fafaf9; transform: translateY(-2px); box-shadow: 0 6px 18px #00000005; }
   a.card:hover .arrow { transform: translate(2px,-2px); color: #888; }
   a.card:hover .project-image img { transform: scale(1.05); }
   a.card:hover .company-logo { transform: scale(1.08); }

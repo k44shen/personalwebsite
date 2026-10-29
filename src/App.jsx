@@ -60,7 +60,7 @@ function Home({ reduced, paused, setPaused }) {
   return <>
     <div className="home-layout">
       <div className="home-column">
-        <section className="intro enter"><Greeting reduced={reduced} /><p>i work with robots and stuff</p><p>tron @uwaterloo</p></section>
+        <section className="intro enter"><Greeting reduced={reduced} /><p>i work with robots and stuff</p><p className="school-line">tron @uwaterloo <img className="waterloo-crest" src={asset('logos/uwaterloo.svg')} alt="University of Waterloo" width="28" height="32" /></p></section>
         {experience.slice(0, 3).map((item, index) => <ExperienceCard key={item.title} item={item} index={index} />)}
         <ProjectCard project={projects[2]} index={2} />
         <ProjectCard project={projects[4]} index={3} />
