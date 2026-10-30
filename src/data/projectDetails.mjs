@@ -1,4 +1,24 @@
 export const projectDetails = {
+  'watonomous-humanoid-firmware': {
+    title: 'Pioneer', subtitle: 'IMU-to-CAN firmware for WATonomous’s humanoid',
+    role: 'STM32 firmware, CAN message serialization, and DBC definitions · WATonomous',
+    timeline: 'September 2026 – present',
+    stack: ['STM32', 'C', 'FreeRTOS', 'BNO085', 'Classic CAN / CAN-FD', 'DBC'],
+    imageCredit: { text: 'Pioneer team render, shown on', label: 'Ryan Wang’s portfolio', url: 'https://wangdynasty.ca/' },
+    sections: [
+      { id: 'context', title: 'The humanoid platform', text: 'Pioneer is WATonomous’s undergraduate humanoid project at the University of Waterloo. The wider team develops the robot’s mechanical systems, actuators, perception, and software. My contribution is in the embedded interface that makes IMU measurements available to the robot’s CAN network.' },
+      { id: 'requirements', title: 'The sensor bridge', text: 'The BNO085 provides fused orientation, angular velocity, and gravity measurements, but has no native CAN interface. The bridge uses an STM32 to read the sensor and publish a defined representation that the rest of the robot can decode.', bullets: ['Represent quaternion, angular-velocity, and gravity measurements with consistent scaling and byte order.', 'Keep publishing on a scheduled FreeRTOS task rather than an opportunistic loop.', 'Add matching DBC definitions so firmware and host software share the same signal contract.'] },
+      { id: 'protocol', title: 'CAN protocol iteration', text: 'The initial CAN-FD prototype represented the ten signed 16-bit signals in a single 20-byte payload. The later revision splits that data into three Classic CAN frames: eight bytes for the quaternion, six for angular velocity, and six for gravity. This revision also changes the frame configuration and corresponding DBC definitions.', paragraphs: ['The implementation targets a 250 Hz publishing schedule, or one cycle every 4 ms. That configured schedule is a firmware target; it is not a measured end-to-end sensor throughput result.'] },
+      { id: 'firmware', title: 'Firmware & data quality', text: 'The contribution includes explicit big-endian serialization, fixed-point signal scaling, and checks that suppress publication when orientation or motion samples are missing or stale. The Classic CAN revision checks that all three measurement groups have recent timestamps before constructing the frames.', image: 'humanoid-pin-configuration.png', caption: 'STM32 FDCAN pin configuration from the early firmware portfolio. The later revision changes the message framing to Classic CAN.' },
+      { id: 'validation', title: 'Integration status', text: 'The linked Classic CAN revision is an open pull request. Source changes and the proposed message contract are available for review; they do not establish that the revision is merged into the main robot stack or validated with the complete physical sensor-to-host path.', bullets: ['Verify sensor acquisition and timestamp updates on the target board.', 'Compare received frames against the DBC signal definitions.', 'Measure publish timing and stale-data behaviour during end-to-end hardware integration.'] },
+    ],
+    resources: [
+      { title: 'Pioneer project & system documentation', kind: 'Team project', url: 'https://watonomous.github.io/humanoid-docs/index.html', description: 'The full humanoid platform and the team’s mechanical, software, and hardware documentation.' },
+      { title: 'IMU bridge requirements · issue #195', kind: 'Requirements', url: 'https://github.com/WATonomous/pioneer_humanoid/issues/195', description: 'BNO085 bridge scope, required signals, CAN integration, and publishing-rate target.' },
+      { title: 'Classic CAN firmware revision · PR #289', kind: 'My contribution · in review', url: 'https://github.com/WATonomous/pioneer_humanoid/pull/289', description: 'Three-frame payload, Classic CAN configuration, DBC changes, and scheduled publishing.' },
+      { title: 'IMU firmware branch', kind: 'Firmware', url: 'https://github.com/WATonomous/pioneer_humanoid/tree/issue-195-classic-can', description: 'The proposed sensor-board firmware and matching robot-interface definitions.' },
+    ],
+  },
   'electric-go-kart': {
     subtitle: 'From chassis CAD to a welded frame and installed steering',
     role: 'Chassis design, fabrication, and steering integration · two-person project',

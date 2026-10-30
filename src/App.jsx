@@ -22,10 +22,10 @@ function ProjectCard({ project, index = 0 }) {
 function ExperienceCard({ item, detail = false, index = 0 }) {
   const content = <>
     {item.logo ? <img className="company-logo" src={asset(`logos/${item.logo}.${item.logo === 'multimatic' ? 'png' : 'jpg'}`)} alt={`${item.company} logo`} width="56" height="56" /> : <span className="company-initial" aria-hidden="true">{item.company[0]}</span>}
-    <div className="experience-copy"><span className="card-label">{item.incoming ? 'Incoming W27' : 'Experience'} · {item.company}</span><h2>{item.title}</h2></div>
+    <div className="experience-copy"><span className="card-label">{item.incoming ? 'Incoming W27' : 'Experience'} · {item.company}</span><h2>{item.title}</h2>{item.revealDescription && <><p className="experience-teaser">{item.teaser}</p><div className="experience-reveal"><div><p>{item.description}</p></div></div></>}</div>
     <Arrow />
   </>;
-  return <a className={`experience-card card enter${detail ? ' detail-experience' : ''}`} href={item.url} target="_blank" rel="noreferrer" style={{ '--delay': `${detail ? Math.min(index, 5) * 60 : index * 80 + 100}ms` }}>{content}</a>;
+  return <a className={`experience-card card enter${detail ? ' detail-experience' : ''}${item.revealDescription ? ' has-role-details' : ''}`} href={item.url} target="_blank" rel="noreferrer" style={{ '--delay': `${detail ? Math.min(index, 5) * 60 : index * 80 + 100}ms` }}>{content}</a>;
 }
 
 function Greeting({ reduced, paused }) {
@@ -58,7 +58,7 @@ function Greeting({ reduced, paused }) {
 }
 
 function Home({ reduced, paused, setPaused }) {
-  const [order, setOrder] = useState([5, 0, 1, 3]);
+  const [order, setOrder] = useState([6, 5, 1, 0, 3]);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   useEffect(() => {

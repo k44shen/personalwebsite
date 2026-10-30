@@ -20,6 +20,7 @@ export default function ProjectDetail({ project, asset, link }) {
       <div className="case-body">
         <section id="project-visual" className="case-anchor">
           <div className="detail-image card"><img src={asset(`projects/${project.image}`)} alt={project.alt} /></div>
+          {details.imageCredit && <p className="case-image-credit">{details.imageCredit.text} <a href={details.imageCredit.url} target="_blank" rel="noreferrer">{details.imageCredit.label} ↗</a></p>}
           <dl className="case-meta">
             {details.timeline && <div><dt>timeline</dt><dd>{details.timeline}</dd></div>}
             {details.role && <div><dt>my role</dt><dd>{details.role}</dd></div>}

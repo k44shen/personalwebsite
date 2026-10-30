@@ -14,3 +14,11 @@ Link checks: 16 engineering resources; 15 returned HTTP 200, the FMEA returned H
 Supporting images added from the existing portfolio extraction: `06-Rocketry-tower-simulation.png` and `16-Visionary-projected-cue.jpg`.
 
 Contact links: X handle `k44shen` explicitly supplied by user; email `k44shen@uwaterloo.ca`. `public/resume.pdf` now uses the user-supplied `Kevin-Shen-Resume-Mechanical.pdf`; `public/portfolio.pdf` uses the user-supplied `Kevin-Shen-Portfolio.pdf`.
+
+## Pioneer firmware project
+
+Added the seventh project using live public issue #195, PR #289, and the `issue-195-classic-can` branch in `WATonomous/pioneer_humanoid`. The earlier `WATonomous/humanoid` URL redirects to this repository. PR #289 is authored by k44shen and was OPEN at inspection. The page separates the historical 20-byte CAN-FD prototype from the three-frame Classic CAN revision, configured 250 Hz schedule, and still-pending end-to-end hardware validation.
+
+Hero asset `pioneer-team-render.png` is copied unchanged from `https://wangdynasty.ca/assets/projects/pioneer/nobg-centered.png`, with a visible source credit on the project page. It is a team render, not a claim that Kevin designed the robot. Supporting FDCAN configuration screenshot comes from the existing resume/portfolio image extraction.
+
+Incoming Multimatic description restores only the previously user-supplied robotics scope. It is marked Incoming W27, with a visible robotics teaser; extra detail expands on hover/keyboard focus and is visible by default on touch devices.
