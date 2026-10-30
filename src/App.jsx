@@ -22,7 +22,7 @@ function ProjectCard({ project, index = 0 }) {
 function ExperienceCard({ item, detail = false, index = 0 }) {
   const content = <>
     {item.logo ? <img className="company-logo" src={asset(`logos/${item.logo}.${item.logo === 'multimatic' ? 'png' : 'jpg'}`)} alt={`${item.company} logo`} width="56" height="56" /> : <span className="company-initial" aria-hidden="true">{item.company[0]}</span>}
-    <div className="experience-copy"><span className="card-label">{item.incoming ? 'Incoming W27' : 'Experience'} · {item.company}</span><h2>{item.title}</h2>{detail && item.description && <p>{item.description}</p>}</div>
+    <div className="experience-copy"><span className="card-label">{item.incoming ? 'Incoming W27' : 'Experience'} · {item.company}</span><h2>{item.title}</h2></div>
     {!detail && <Arrow />}
   </>;
   return detail ? <article className="experience-card card enter detail-experience" style={{ '--delay': `${Math.min(index, 5) * 60}ms` }}>{content}</article> : <a className="experience-card card enter" href={link('experience/')} style={{ '--delay': `${index * 80 + 100}ms` }}>{content}</a>;

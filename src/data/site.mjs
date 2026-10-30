@@ -16,8 +16,4 @@ export const experience = [
   { company: 'Waterloo Engineering Society', title: 'Athletics Commissioner', description: 'Athletics Commissioner for the Waterloo Engineering Society', logo: 'engsoc' },
   { company: 'Waterloo Engineering Society', title: 'Class Representative', description: 'Class Representative for 117 Mechatronics Engineering students', logo: 'engsoc' },
   { company: 'Waterloo Engineering Society', title: 'Winter Director', description: 'Director for Student Life Portfolio', logo: 'engsoc' },
-  { company: 'Kevvcleans', title: 'Founder & Mobile Auto Detailer', description: 'detailed cars' },
-  { company: 'Delph & Jenkins North Ltd.', title: 'CAD Drafting Assistant', description: 'Produced AutoCAD drawings' },
-  { company: 'Mathnasium of Aurora, ON', title: 'Mathematics Instructor', description: 'Teaching math to the next generation', logo: 'mathnasium' },
-  { company: 'Shad Canada', title: 'Shad Fellow', logo: 'shad' },
 ];
