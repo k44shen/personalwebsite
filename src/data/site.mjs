@@ -13,7 +13,5 @@ export const experience = [
   { company: 'Multimatic', title: 'E-Coat Electromechanical Engineering Intern', description: 'E-coat electromechanical system', logo: 'multimatic' },
   { company: 'WATbotics', title: 'Mechatronics Design Member', description: 'built iron man helmet', logo: 'watbotics' },
   { company: 'Waterloo Rocketry', title: 'Propulsion and Ground Support Equipment Member', description: 'made some stuff', logo: 'rocketry' },
-  { company: 'Waterloo Engineering Society', title: 'Athletics Commissioner', description: 'Athletics Commissioner for the Waterloo Engineering Society', logo: 'engsoc' },
-  { company: 'Waterloo Engineering Society', title: 'Class Representative', description: 'Class Representative for 117 Mechatronics Engineering students', logo: 'engsoc' },
-  { company: 'Waterloo Engineering Society', title: 'Winter Director', description: 'Director for Student Life Portfolio', logo: 'engsoc' },
+  { company: 'Delph & Jenkins Land Surveyors', title: 'CAD Drafting Assistant' },
 ];
