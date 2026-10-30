@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { projects, experience } from './data/site.mjs';
+import ProjectDetail from './components/ProjectDetail.jsx';
 
 const base = new URL(/* @vite-ignore */ '../', import.meta.url).pathname;
 const asset = (path) => `${base}assets/${path}`;
@@ -86,10 +87,6 @@ function Home({ reduced, paused, setPaused }) {
   </>;
 }
 
-function ProjectDetail({ project }) {
-  return <section className="project-detail enter"><a className="back-link" href={link('projects/')}>← Projects</a><h1 className="page-title">{project.name}</h1><div className="detail-image card"><img src={asset(`projects/${project.image}`)} alt={project.alt} /></div><p className="project-description">{project.description}</p>{project.status && <p className="project-status">{project.status}</p>}</section>;
-}
-
 export default function App() {
   const path = currentPath();
   const active = path.startsWith('projects') ? 'projects' : path === 'experience' ? 'experience' : 'home';
@@ -106,7 +103,7 @@ export default function App() {
   return <div className="site-shell">
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="site-header"><nav className="pill-nav" aria-label="Main navigation"><a href={link()} aria-current={active === 'home' ? 'page' : undefined}>kevin</a><a href={link('projects/')} aria-current={active === 'projects' ? 'page' : undefined}>projects</a><a href={link('experience/')} aria-current={active === 'experience' ? 'page' : undefined}>experience</a></nav><nav className="external-nav" aria-label="External links"><a href="https://github.com/k44shen" target="_blank" rel="noreferrer">github</a><a href="https://www.linkedin.com/in/kevin-shen-/" target="_blank" rel="noreferrer">linkedin</a></nav></header>
-    <main id="main">{project ? <ProjectDetail project={project} /> : active === 'projects' ? <section><h1 className="page-title enter">Projects</h1><div className="projects-grid">{projects.map((item, index) => <ProjectCard key={item.slug} project={item} index={index} />)}</div></section> : active === 'experience' ? <section><h1 className="page-title enter">Experience</h1><div className="experience-list">{experience.map((item, index) => <ExperienceCard key={item.company + item.title} item={item} index={index} detail />)}</div></section> : <Home reduced={reduced} paused={paused} setPaused={setPaused} />}</main>
+    <main id="main">{project ? <ProjectDetail project={project} asset={asset} link={link} /> : active === 'projects' ? <section><h1 className="page-title enter">Projects</h1><div className="projects-grid">{projects.map((item, index) => <ProjectCard key={item.slug} project={item} index={index} />)}</div></section> : active === 'experience' ? <section><h1 className="page-title enter">Experience</h1><div className="experience-list">{experience.map((item, index) => <ExperienceCard key={item.company + item.title} item={item} index={index} detail />)}</div></section> : <Home reduced={reduced} paused={paused} setPaused={setPaused} />}</main>
     <footer><a href="mailto:k44shen@uwaterloo.ca">k44shen@uwaterloo.ca</a><nav className="webring" aria-label="Tron webring"><a href="https://tronring.com/#k44shen.github.io/personalwebsite?nav=prev" aria-label="Previous site">←</a><a href="https://tronring.com/#k44shen.github.io/personalwebsite" target="_blank" rel="noreferrer"><img src={asset('logos/tron-ring.png')} alt="Tron Ring" width="32" height="32" /></a><a href="https://tronring.com/#k44shen.github.io/personalwebsite?nav=next" aria-label="Next site">→</a></nav></footer>
   </div>;
 }
