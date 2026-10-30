@@ -8,10 +8,10 @@ export const projects = [
 ];
 
 export const experience = [
-  { company: 'Multimatic', title: 'Advanced Manufacturing Engineering Intern', description: 'incoming w27; robotics integration, deployment of humanoid robots, cobots, and autonomous mobile robots', logo: 'multimatic', incoming: true },
-  { company: 'WATonomous', title: 'Humanoid Firmware', description: "developing firmware for canada's first undergraduate humanoid", logo: 'watonomous' },
-  { company: 'Multimatic', title: 'E-Coat Electromechanical Engineering Intern', description: 'E-coat electromechanical system', logo: 'multimatic' },
-  { company: 'WATbotics', title: 'Mechatronics Design Member', description: 'built iron man helmet', logo: 'watbotics' },
-  { company: 'Waterloo Rocketry', title: 'Propulsion and Ground Support Equipment Member', description: 'made some stuff', logo: 'rocketry' },
-  { company: 'Delph & Jenkins Land Surveyors', title: 'CAD Drafting Assistant' },
+  { company: 'Multimatic', url: 'https://www.multimatic.com/', title: 'Advanced Manufacturing Engineering Intern', description: 'incoming w27; robotics integration, deployment of humanoid robots, cobots, and autonomous mobile robots', logo: 'multimatic', incoming: true },
+  { company: 'WATonomous', url: 'https://www.watonomous.ca/', title: 'Humanoid Firmware', description: "developing firmware for canada's first undergraduate humanoid", logo: 'watonomous' },
+  { company: 'Multimatic', url: 'https://www.multimatic.com/', title: 'E-Coat Electromechanical Engineering Intern', description: 'E-coat electromechanical system', logo: 'multimatic' },
+  { company: 'WATbotics', url: 'https://www.linkedin.com/company/watbotics/', title: 'Mechatronics Design Member', description: 'built iron man helmet', logo: 'watbotics' },
+  { company: 'Waterloo Rocketry', url: 'https://www.waterloorocketry.com/', title: 'Propulsion and Ground Support Equipment Member', description: 'made some stuff', logo: 'rocketry' },
+  { company: 'Delph & Jenkins Land Surveyors', url: 'https://djsurveyors.com/', title: 'CAD Drafting Assistant' },
 ];
