@@ -5,6 +5,7 @@ const html = await readFile('dist/index.html', 'utf8');
 const pages = [
   { path: 'projects', title: 'Projects' },
   { path: 'experience', title: 'Experience' },
+  { path: 'build-log', title: 'Build log' },
   ...projects.map(project => ({ path: `projects/${project.slug}`, title: project.name })),
 ];
 for (const page of pages) {

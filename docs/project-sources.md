@@ -22,3 +22,11 @@ Added the seventh project using live public issue #195, PR #289, and the `issue-
 Hero asset `pioneer-team-render.png` is copied unchanged from `https://wangdynasty.ca/assets/projects/pioneer/nobg-centered.png`, with a visible source credit on the project page. It is a team render, not a claim that Kevin designed the robot. Supporting FDCAN configuration screenshot comes from the existing resume/portfolio image extraction.
 
 Incoming Multimatic description restores only the previously user-supplied robotics scope. It is marked Incoming W27, with a visible robotics teaser; extra detail expands on hover/keyboard focus and is visible by default on touch devices.
+
+## Turret progress video — October 30, 2026
+
+Source: user-supplied `/Users/kevinshen/Downloads/IMG_2463.MOV`, 12.872 s at 1920×1080. Reviewed six sampled frames across the clip. The footage shows the assembled turret changing orientation alongside connected electronics and laptop operation. It supports a bench motion milestone, not autonomous tracking, water firing, or a general electrical qualification claim.
+
+Web copy: `public/assets/videos/turret-motion-test-2026-10-30.mp4`, exported with macOS AVFoundation at 1280×720, optimized for network use, with muted audio. The complete clip duration is retained; the source file is unchanged. Poster extracted near 40% of the clip.
+
+The build-log date is the publication/update date. The update is shown on `/build-log/` and in the turret page’s Progress section. Social drafts are kept in `output/social-posts/turret-motion-test.md` and have not been posted externally.

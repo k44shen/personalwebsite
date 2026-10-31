@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { projects, experience } from './data/site.mjs';
 import ProjectDetail from './components/ProjectDetail.jsx';
+import BuildLog from './components/BuildLog.jsx';
 
 const base = new URL(/* @vite-ignore */ '../', import.meta.url).pathname;
 const asset = (path) => `${base}assets/${path}`;
@@ -89,7 +90,7 @@ function Home({ reduced, paused, setPaused }) {
 
 export default function App() {
   const path = currentPath();
-  const active = path.startsWith('projects') ? 'projects' : path === 'experience' ? 'experience' : 'home';
+  const active = path.startsWith('projects') ? 'projects' : path === 'experience' ? 'experience' : path === 'build-log' ? 'build-log' : 'home';
   const project = projects.find(item => path === `projects/${item.slug}`);
   const [paused, setPaused] = useState(false);
   const [reduced, setReduced] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -99,11 +100,11 @@ export default function App() {
     query.addEventListener('change', onChange);
     return () => query.removeEventListener('change', onChange);
   }, []);
-  useEffect(() => { document.title = `${project?.name || (active === 'projects' ? 'Projects' : active === 'experience' ? 'Experience' : 'Kevin Shen')}${active === 'home' ? '' : ' · Kevin Shen'}`; }, [active, project]);
+  useEffect(() => { document.title = `${project?.name || (active === 'projects' ? 'Projects' : active === 'experience' ? 'Experience' : active === 'build-log' ? 'Build log' : 'Kevin Shen')}${active === 'home' ? '' : ' · Kevin Shen'}`; }, [active, project]);
   return <div className="site-shell">
     <a className="skip-link" href="#main">Skip to content</a>
-    <header className="site-header"><nav className="pill-nav" aria-label="Main navigation"><a href={link()} aria-current={active === 'home' ? 'page' : undefined}>kevin</a><a href={link('projects/')} aria-current={active === 'projects' ? 'page' : undefined}>projects</a><a href={link('experience/')} aria-current={active === 'experience' ? 'page' : undefined}>experience</a></nav><nav className="external-nav" aria-label="External links"><a href="https://github.com/k44shen" target="_blank" rel="noreferrer">github</a><a href="https://www.linkedin.com/in/kevin-shen-/" target="_blank" rel="noreferrer">linkedin</a><a href="https://x.com/k44shen" target="_blank" rel="noreferrer">x</a><a href="mailto:k44shen@uwaterloo.ca">email</a><a href={link('resume.pdf')} target="_blank" rel="noreferrer">resume</a><a href={link('portfolio.pdf')} target="_blank" rel="noreferrer">portfolio</a></nav></header>
-    <main id="main">{project ? <ProjectDetail project={project} asset={asset} link={link} /> : active === 'projects' ? <section><h1 className="page-title enter">Projects</h1><div className="projects-grid">{projects.map((item, index) => <ProjectCard key={item.slug} project={item} index={index} />)}</div></section> : active === 'experience' ? <section><h1 className="page-title enter">Experience</h1><div className="experience-list">{experience.map((item, index) => <ExperienceCard key={item.company + item.title} item={item} index={index} detail />)}</div></section> : <Home reduced={reduced} paused={paused} setPaused={setPaused} />}</main>
+    <header className="site-header"><nav className="pill-nav" aria-label="Main navigation"><a href={link()} aria-current={active === 'home' ? 'page' : undefined}>kevin</a><a href={link('projects/')} aria-current={active === 'projects' ? 'page' : undefined}>projects</a><a href={link('experience/')} aria-current={active === 'experience' ? 'page' : undefined}>experience</a><a href={link('build-log/')} aria-current={active === 'build-log' ? 'page' : undefined}>build log</a></nav><nav className="external-nav" aria-label="External links"><a href="https://github.com/k44shen" target="_blank" rel="noreferrer">github</a><a href="https://www.linkedin.com/in/kevin-shen-/" target="_blank" rel="noreferrer">linkedin</a><a href="https://x.com/k44shen" target="_blank" rel="noreferrer">x</a><a href="mailto:k44shen@uwaterloo.ca">email</a><a href={link('resume.pdf')} target="_blank" rel="noreferrer">resume</a><a href={link('portfolio.pdf')} target="_blank" rel="noreferrer">portfolio</a></nav></header>
+    <main id="main">{project ? <ProjectDetail project={project} asset={asset} link={link} /> : active === 'build-log' ? <BuildLog asset={asset} link={link} /> : active === 'projects' ? <section><h1 className="page-title enter">Projects</h1><div className="projects-grid">{projects.map((item, index) => <ProjectCard key={item.slug} project={item} index={index} />)}</div></section> : active === 'experience' ? <section><h1 className="page-title enter">Experience</h1><div className="experience-list">{experience.map((item, index) => <ExperienceCard key={item.company + item.title} item={item} index={index} detail />)}</div></section> : <Home reduced={reduced} paused={paused} setPaused={setPaused} />}</main>
     <footer><a href="mailto:k44shen@uwaterloo.ca">k44shen@uwaterloo.ca</a><nav className="webring" aria-label="Tron webring"><a href="https://tronring.com/#kevinshen.work?nav=prev" aria-label="Previous site">←</a><a href="https://tronring.com/#kevinshen.work" target="_blank" rel="noreferrer"><img src={asset('logos/tron-ring.png')} alt="Tron Ring" width="32" height="32" /></a><a href="https://tronring.com/#kevinshen.work?nav=next" aria-label="Next site">→</a></nav></footer>
   </div>;
 }
