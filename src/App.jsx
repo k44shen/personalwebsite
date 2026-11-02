@@ -22,7 +22,7 @@ function ProjectCard({ project, index = 0 }) {
 
 function ExperienceCard({ item, detail = false, index = 0 }) {
   const content = <>
-    {item.logo ? <img className="company-logo" src={asset(`logos/${item.logo}.${item.logo === 'multimatic' ? 'png' : 'jpg'}`)} alt={`${item.company} logo`} width="56" height="56" /> : <span className="company-initial" aria-hidden="true">{item.company[0]}</span>}
+    {item.logo ? <img className="company-logo" src={asset(`logos/${item.logo}.${['multimatic', 'delph-jenkins'].includes(item.logo) ? 'png' : 'jpg'}`)} alt={`${item.company} logo`} width="56" height="56" /> : <span className="company-initial" aria-hidden="true">{item.company[0]}</span>}
     <div className="experience-copy"><span className="card-label">{item.incoming ? 'Incoming W27' : 'Experience'} · {item.company}</span><h2>{item.title}</h2>{item.revealDescription && <><p className="experience-teaser">{item.teaser}</p><div className="experience-reveal"><div><p>{item.description}</p></div></div></>}</div>
     <Arrow />
   </>;

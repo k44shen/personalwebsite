@@ -14,5 +14,5 @@ export const experience = [
   { company: 'Multimatic', url: 'https://www.multimatic.com/', title: 'E-Coat Electromechanical Engineering Intern', description: 'E-coat electromechanical system', logo: 'multimatic' },
   { company: 'WATbotics', url: 'https://www.linkedin.com/company/watbotics/', title: 'Mechatronics Design Member', description: 'built iron man helmet', logo: 'watbotics' },
   { company: 'Waterloo Rocketry', url: 'https://www.waterloorocketry.com/', title: 'Propulsion and Ground Support Equipment Member', description: 'made some stuff', logo: 'rocketry' },
-  { company: 'Delph & Jenkins Land Surveyors', url: 'https://djsurveyors.com/', title: 'CAD Drafting Assistant' },
+  { company: 'Delph & Jenkins Land Surveyors', url: 'https://djsurveyors.com/', title: 'CAD Drafting Assistant', logo: 'delph-jenkins' },
 ];
