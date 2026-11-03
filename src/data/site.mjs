@@ -9,7 +9,7 @@ export const projects = [
 ];
 
 export const experience = [
-  { company: 'Multimatic', url: 'https://www.multimatic.com/', title: 'Advanced Manufacturing Engineering Intern', description: 'Integrating and deploying humanoid robots, cobots, and autonomous mobile robots in manufacturing.', teaser: 'Robotics integration & deployment', revealDescription: true, logo: 'multimatic', incoming: true },
+  { company: 'Multimatic', url: 'https://www.multimatic.com/', title: 'Advanced Manufacturing Engineering Intern', description: 'Integrating and deploying humanoid robots, cobots, and autonomous mobile robots in manufacturing.', teaser: 'Robotics integration & deployment', revealDescription: true, logo: 'multimatic' },
   { company: 'WATonomous', url: 'https://www.watonomous.ca/', title: 'Humanoid Firmware', description: "developing firmware for canada's first undergraduate humanoid", logo: 'watonomous' },
   { company: 'Multimatic', url: 'https://www.multimatic.com/', title: 'E-Coat Electromechanical Engineering Intern', description: 'E-coat electromechanical system', logo: 'multimatic' },
   { company: 'WATbotics', url: 'https://www.linkedin.com/company/watbotics/', title: 'Mechatronics Design Member', description: 'built iron man helmet', logo: 'watbotics' },

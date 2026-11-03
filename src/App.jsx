@@ -52,7 +52,7 @@ function ProjectCard({ project, index = 0 }) {
 function ExperienceCard({ item, detail = false, index = 0 }) {
   const content = <>
     {item.logo ? <img className="company-logo" src={asset(`logos/${item.logo}.${item.logo === 'delph-jenkins' ? 'svg' : item.logo === 'multimatic' ? 'png' : 'jpg'}`)} alt={`${item.company} logo`} width="56" height="56" /> : <span className="company-initial" aria-hidden="true">{item.company[0]}</span>}
-    <div className="experience-copy"><span className="card-label">{item.incoming ? 'Incoming W27' : 'Experience'} · {item.company}</span><h2>{item.title}</h2>{item.revealDescription && <><p className="experience-teaser">{item.teaser}</p><div className="experience-reveal"><div><p>{item.description}</p></div></div></>}</div>
+    <div className="experience-copy"><span className="card-label">Experience · {item.company}</span><h2>{item.title}</h2>{item.revealDescription && <><p className="experience-teaser">{item.teaser}</p><div className="experience-reveal"><div><p>{item.description}</p></div></div></>}</div>
     <Arrow />
   </>;
   return <a className={`experience-card card enter${detail ? ' detail-experience' : ''}${item.revealDescription ? ' has-role-details' : ''}`} href={item.url} target="_blank" rel="noreferrer" style={{ '--delay': `${detail ? Math.min(index, 5) * 60 : index * 80 + 100}ms` }}>{content}</a>;
