@@ -219,3 +219,6 @@ footer { display: flex; align-items: center; justify-content: space-between; pad
 .theme-toggle { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 5px; margin: -6px 0; border: 0; border-radius: 50%; color: var(--muted); background: transparent; cursor: pointer; flex-shrink: 0; }
 .theme-toggle:hover { color: var(--text); background: var(--active); }
 .theme-toggle svg { width: 19px; height: 19px; }
+
+.footer-rings { display: flex; align-items: center; gap: 24px; }
+footer { flex-wrap: wrap; }
